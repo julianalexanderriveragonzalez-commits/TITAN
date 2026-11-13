@@ -202,6 +202,24 @@ function renderCasefile(report){
     for(const s of t.series){add(group,'p',s.date.slice(0,10)+' vs. '+s.opponent+' · '+s.maps.map(m=>m.map.replace('de_','')+' '+m.score.join('–')).join(' / '));}
   }
   add(box,'p',f.transferability+' Faltantes: '+f.missing.join(', ')+'.');
+  if(f.causal){
+    add(box,'h4','T5 · Secuencias por ronda');
+    for(const [key,title] of [['prematch','Antes del corte'],['latest','Última revisión']]){
+      const scope=f.causal[key],group=document.createElement('details');box.append(group);
+      add(group,'summary',title+' · '+scope.rounds+' rondas utilizables · '+scope.compatible+' hipótesis compatibles');
+      for(const [team,findings] of Object.entries(scope.teams)){
+        for(const v of findings){
+          const item=document.createElement('details');group.append(item);
+          add(item,'summary',team+' · '+v.mechanism+' · '+v.map+' '+v.side+' · '+v.hits+'/'+v.opportunities);
+          add(item,'p','Equipamiento relativo: '+(v.equipment||'desconocido')+'. Rivales previos distintos del próximo: '+(v.rivals.join(', ')||'ninguno')+'. En el próximo rival: '+v.target_hits+'/'+v.target_opportunities+' secuencias complementarias.');
+          for(const [label,rows] of [['Equipo',v.examples],['Rival',v.target_examples]]){
+            for(const r of rows){const link=add(item,'a',label+' vs. '+r.opponent+' · '+r.map+' R'+r.round+' · '+(r.observed?'se observó':'contraejemplo'));link.href=r.source;link.target='_blank';link.rel='noopener noreferrer';item.append(document.createElement('br'));}
+          }
+        }
+      }
+    }
+    add(box,'p','Cerrojo T6 · '+f.t6_blockers.join(' '));
+  }
   if(report.workflow){
     add(box,'h3','Fases y cerrojo · '+report.evidence_state);
     for(const phase of report.workflow.phases){

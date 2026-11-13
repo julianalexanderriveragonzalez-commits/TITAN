@@ -1,5 +1,6 @@
 """Join T1–T4 into an inspectable dossier. Late evidence stays outside the verdict."""
 from titan import parse_dt, window_rows
+from causal import build_causal
 
 
 def build_casefile(report, evidence):
@@ -33,10 +34,16 @@ def build_casefile(report, evidence):
                     'kd_at_cutoff':kd,'prematch':claim(sources['prematch_players']),
                     'review':claim(sources['players'])})
         teams[slot]={'name':name,'players':sheets,'series':collective}
-    return {'teams':teams,'observations_at_cutoff':observed,
+    causal=build_causal(report,evidence)
+    blockers=[]
+    if observed<50: blockers.append(f'Muestra individual prepartido {observed}/50.')
+    if causal['prematch']['series']<10: blockers.append(f"Series con secuencias de apertura al corte: {causal['prematch']['series']}/10.")
+    if not causal['prematch']['compatible']: blockers.append('Sin secuencia repetida y compatible con el siguiente rival al corte.')
+    blockers.append('Falta validar la explicación táctica y las alternativas con eventos ordenados de ronda.')
+    return {'causal':causal,'t6_blockers':blockers,'teams':teams,'observations_at_cutoff':observed,
             'series_count':sum(len(t['series']) for t in teams.values()),
             'status':'PARCIAL' if observed or any(t['series'] for t in teams.values()) else 'PENDIENTE',
-            'transferability':'Pendiente de verificar un mecanismo repetido ante rivales comparables.',
+            'transferability':'Contraste por mapa, lado, primera baja y relación de equipamiento. La compatibilidad describe una hipótesis.',
             'missing':['Rol por serie','KAST y rating comparable de serie','Causalidad y compensación por ronda']}
 
 
@@ -74,7 +81,7 @@ def workflow(report, payload):
           ('T3_multifuente','Investigación multifuente',str(report['multisource']['confirmed_before'])+' series corroboradas al corte'),
           ('T4_osint','Contexto público',', '.join(report['osint']['pending'])),
           ('T5_fichas_piso','Expediente y transferibilidad',' · '.join(evidence_gap))]),
-        ('Evaluación ciega',[('T6_cipi_ciego','CIPI ciego','Seis familias descriptivas; síntesis causal pendiente.'),
+        ('Evaluación ciega',[('T6_cipi_ciego','CIPI ciego',' '.join(report['casefile']['t6_blockers'])),
           ('T7_robustez','Robustez','Retirada individual y sensibilidad hipotética del indicador.'),
           ('T8_contradicciones','Contradicción y volatilidad',' '.join(objections))]),
         ('Resolución',[('T9_desbloqueo_identidad','Contraste de identidad','La liberación formal depende del cerrojo de evidencia.'),
