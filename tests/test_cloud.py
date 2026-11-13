@@ -45,6 +45,14 @@ class CloudTests(unittest.TestCase):
         self.assertTrue(status.startswith('404'))
     def test_analyze_without_fabricating(self):
         s,r=self.request('/api/analyze','POST',self.payload(2));self.assertTrue(s.startswith('200'));self.assertEqual(r['selection_type'],'PROVISIONAL FORZADA');self.assertEqual(len(r['controls_R33_R34']),12)
+    def test_reopen_frozen_report_only_from_own_browser(self):
+        _,frozen=self.request('/api/freeze','POST',self.payload(2))
+        route='/api/history/'+frozen['id']
+        status,report=self.request(route)
+        self.assertTrue(status.startswith('200'))
+        self.assertEqual(report,frozen['report'])
+        self.cookie=''
+        self.assertTrue(self.request(route)[0].startswith('404'))
     def test_freeze_and_history(self):
         s,r=self.request('/api/freeze','POST',self.payload(2));self.assertTrue(s.startswith('201'))
         s,h=self.request('/api/history');self.assertEqual(h['items'][0]['id'],r['id'])

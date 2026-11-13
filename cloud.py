@@ -16,6 +16,7 @@ from http.cookies import CookieError, SimpleCookie
 from wsgiref.simple_server import make_server
 from titan import analyze, parse_dt
 from research import automatic_input
+from casefile import build_casefile, workflow
 from identity import build_identity
 from multisource import dossier
 from osint_context import context as public_context
@@ -178,7 +179,10 @@ def app(environ, start_response):
                     report['window']['prematch_player_counts'] = counts
 
                 report['controls_R33_R34'] = {k:v['estado'] for k,v in diagnostics['controls'].items()}
+                report['casefile'] = build_casefile(report, evidence)
+                report['tasks']['T5_fichas_piso'] = report['casefile']['status']
                 report['tasks']['T7_robustez'] = 'PARCIAL' if diagnostics['withdrawals'][1] else 'BLOQUEADA'
+                report['workflow'] = workflow(report,payload)
                 report['methodology_notes'].append('Las fichas consultadas después del corte solo se usan para revisión retrospectiva.')
 
             if path.endswith('analyze'):
@@ -194,6 +198,14 @@ def app(environ, start_response):
                 db.execute('INSERT INTO browser_predictions (owner, id, created_utc, input_json, report_json) VALUES (?,?,?,?,?)',
                            (owner, ident, timestamp, json.dumps(payload,ensure_ascii=False),json.dumps(report,ensure_ascii=False)))
             return json_reply(start_response, '201 Created', {'id':ident,'created_utc':timestamp,'report':report})
+        if method == 'GET' and re.fullmatch(r'/api/history/[0-9a-f]{24}',path):
+            init_database()
+            with sqlite3.connect(db_path(),timeout=10) as db:
+                row=db.execute('SELECT report_json FROM browser_predictions WHERE owner=? AND id=?',
+                               (owner,path.rsplit('/',1)[-1])).fetchone()
+            if row is None:
+                return json_reply(start_response,'404 Not Found',{'error':'Registro no encontrado'})
+            return json_reply(start_response,'200 OK',json.loads(row[0]))
         if method == 'GET' and path == '/api/history':
             init_database()
             with sqlite3.connect(db_path(), timeout=10) as db:

@@ -15,7 +15,12 @@ async function action(freeze){
   show($('manual').checked?'Analizando datos manuales…':'Buscando el encuentro y comprobando mapas y jugadores en BLAST…');
   const p=data(); const r=await api(freeze?'/api/freeze':'/api/analyze','POST',p);
   const rep=freeze?r.report:r;
-  show((freeze?'Predicción congelada · ID '+r.id+'\n':'')+(rep.tie_break_explanation?'Desempate administrativo: ':'Selección provisional: ')+rep.selection+'\nTipo: '+rep.selection_type+'\nConfianza: '+rep.confidence+'\nEstado: '+rep.evidence_state+'\n\nCarencias:\n'+Object.entries(rep.missing_evidence).map(([team,gaps])=>team+': '+gaps.join('; ')).join('\n')+'\n\nControles pendientes: '+Object.values(rep.controls_R33_R34).filter(v=>v!=='COMPLETADA').length+'\n\n'+(rep.tie_break_explanation||''));
+  renderReport(rep,freeze?r.id:null);
+  if(freeze) await history();
+ }catch(e){show('Error: '+e.message)}
+}
+function renderReport(rep,id){
+  show((id?'Predicción congelada · ID '+id+'\n':'')+(rep.tie_break_explanation?'Desempate administrativo: ':'Selección provisional: ')+rep.selection+'\nTipo: '+rep.selection_type+'\nConfianza: '+rep.confidence+'\nEstado: '+rep.evidence_state+'\n\nCarencias:\n'+Object.entries(rep.missing_evidence).map(([team,gaps])=>team+': '+gaps.join('; ')).join('\n')+'\n\nControles pendientes: '+Object.values(rep.controls_R33_R34).filter(v=>v!=='COMPLETADA').length+'\n\n'+(rep.tie_break_explanation||''));
   if(rep.blind_scoring){
     const blind=rep.blind_scoring;
     const line=document.createElement('p');
@@ -35,8 +40,7 @@ async function action(freeze){
   if(rep.osint) renderContext(rep.osint);
   if(rep.audit) renderAudit(rep.audit);
   if(rep.research) renderEvidence(rep.research);
-  if(freeze) await history();
- }catch(e){show('Error: '+e.message)}
+  if(rep.casefile) renderCasefile(rep);
 }
 $('analyze').onclick=()=>action(false);
 $('freeze').onclick=()=>action(true);
@@ -47,6 +51,8 @@ async function history(){
   if(!r.items.length){div.textContent='No hay predicciones congeladas.';return;}
   for(const x of r.items){
    const p=document.createElement('p');p.textContent=x.match.team_a+' vs. '+x.match.team_b+' · '+x.selection+' · '+x.confidence+(x.actual_winner?' · Resultado: '+x.actual_winner+(x.correct?' ✓':' ✗'):' · pendiente'); div.append(p);
+   const open=document.createElement('button');open.className='secondary';open.textContent='Abrir expediente';
+   open.onclick=async()=>{try{renderReport(await api('/api/history/'+x.id),x.id);$('result').scrollIntoView();}catch(e){show(e.message);}};div.append(open);
    if(!x.actual_winner){const btn=document.createElement('button');btn.className='secondary';btn.textContent='Registrar resultado';btn.onclick=async()=>{
      const winner=prompt('Ganador real (escribe exactamente '+x.match.team_a+' o '+x.match.team_b+')');if(winner===null)return;
      try{await api('/api/evaluate/'+x.id,'POST',{winner});await history()}catch(e){alert(e.message)}
@@ -175,4 +181,40 @@ function renderContext(context){
   for(const s of context.sources){const row=document.createElement('p');row.textContent=s.name+' · '+s.state+(s.checked?' · '+s.checked:'');panel.append(row);}
   const pending=document.createElement('p');pending.textContent='Por verificar: '+context.pending.join(', ')+'. '+context.scoring_effect+'.';panel.append(pending);
   $('result').append(panel);
+}
+
+function renderCasefile(report){
+  const f=report.casefile, box=document.createElement('section');
+  function add(parent,tag,value){const el=document.createElement(tag);el.textContent=value;parent.append(el);return el;}
+  add(box,'h3','T5 · Expediente y transferibilidad · '+f.status);
+  add(box,'p',f.observations_at_cutoff+'/50 observaciones con K-D de todos los mapas antes del corte · '+f.series_count+'/10 series documentadas.');
+  for(const [slot,t] of Object.entries(f.teams)){
+    add(box,'h4',slot+' · '+t.name);
+    for(const player of t.players){
+      const d=document.createElement('details');box.append(d);
+      add(d,'summary',player.alias+' · '+player.name+' · '+player.observations.filter(r=>r.kd_at_cutoff).length+'/5');
+      for(const r of player.observations){
+        add(d,'p',r.date.slice(0,10)+' vs. '+r.opponent+' · K-D al corte: '+(r.kd_at_cutoff?r.kd_at_cutoff.join('–'):'pendiente')+' · Segunda fuente al corte: '+r.prematch+' · Última revisión: '+r.review);
+        for(const [label,url] of [['BLAST',r.source],['BO3.gg',r.secondary]])if(url){const a=add(d,'a',label+' ');a.href=url;a.target='_blank';a.rel='noopener noreferrer';}
+      }
+    }
+    const group=document.createElement('details');box.append(group);add(group,'summary','Series colectivas · '+t.series.length+'/5');
+    for(const s of t.series){add(group,'p',s.date.slice(0,10)+' vs. '+s.opponent+' · '+s.maps.map(m=>m.map.replace('de_','')+' '+m.score.join('–')).join(' / '));}
+  }
+  add(box,'p',f.transferability+' Faltantes: '+f.missing.join(', ')+'.');
+  if(report.workflow){
+    add(box,'h3','Fases y cerrojo · '+report.evidence_state);
+    for(const phase of report.workflow.phases){
+      const d=document.createElement('details');box.append(d);add(d,'summary',phase.name);
+      for(const step of phase.steps)add(d,'p',step.id+' · '+step.label+' · '+step.state+' · '+step.reason);
+    }
+    const metrics=document.createElement('details');box.append(metrics);add(metrics,'summary','MSI y variabilidad individual');
+    for(const [key,value] of Object.entries(report.workflow.msi))add(metrics,'p',key+' · '+(value||'Pendiente de evidencia'));
+    for(const [team,players] of Object.entries(report.workflow.pve_kd_range))for(const [nick,v] of Object.entries(players)){
+      add(metrics,'p',team+' · '+nick+' · Diferencial K-D por serie: '+(v.series?v.minimum+' a '+v.maximum:'sin muestra')+' · '+v.series+'/5.');
+    }
+    const a=report.workflow.adverse;
+    if(a)add(box,'p','Escenario hipotético: cambiar una victoria por derrota el '+a.changed_date.slice(0,10)+'. Margen experimental del seleccionado: '+a.margin+'.');
+  }
+  $('result').append(box);
 }

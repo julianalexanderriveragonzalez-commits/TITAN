@@ -67,3 +67,7 @@ T2 admite el inicio de la ventana de quince días y excluye la hora de corte. No
 ### T3 — corroboración multifuente
 
 El informe automático contrasta cada serie elegible de BLAST con BO3.gg. Por jugador compara el K-D agregado de todos los mapas de BLAST con el total de la serie en BO3.gg. Separa evidencia prepartido, revisión posterior, contradicciones, duplicados y carencias de cobertura. Para capturas antiguas usa la fecha de comprobación del lote como límite conservador. La corroboración de K-D no certifica ADR, intercambios ni atribuciones causales. El cálculo del pronóstico permanece independiente del expediente T3.
+
+### Expediente T5 y seguimiento por fases
+
+En modo automático, cada ficha enlaza los datos que T1–T4 atribuyen a la misma serie, separando el K-D prepartido y la corroboración posterior. El informe muestra las tres fases, las once tareas y la sensibilidad del indicador al cambiar una victoria por una derrota hipotética. La clasificación deportiva sigue siendo provisional cuando falta evidencia causal. El historial permite volver a abrir la copia congelada desde el mismo navegador mientras exista su registro en SQLite.
