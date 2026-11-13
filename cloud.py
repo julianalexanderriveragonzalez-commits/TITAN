@@ -18,6 +18,7 @@ from titan import analyze, parse_dt
 from research import automatic_input
 from identity import build_identity
 from multisource import dossier
+from osint_context import context as public_context
 from audit import run as audit_match
 
 APP_VERSION = 'TITAN-CLOUD-0.4-R3.4'
@@ -162,6 +163,8 @@ def app(environ, start_response):
                 report['identity'] = build_identity(evidence, cutoff)
                 report['multisource'] = dossier(evidence, cutoff)
                 report['tasks']['T3_multifuente'] = report['multisource']['status']
+                report['osint'] = public_context(evidence, cutoff)
+                report['tasks']['T4_osint'] = report['osint']['status']
                 report['audit'] = diagnostics
                 report['tasks']['T1_anonimizacion'] = report['identity']['status']
                 report['window']['player_counts'] = diagnostics['window_player_counts']

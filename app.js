@@ -32,6 +32,7 @@ async function action(freeze){
     }
   }
   if(rep.multisource) renderSources(rep.multisource);
+  if(rep.osint) renderContext(rep.osint);
   if(rep.audit) renderAudit(rep.audit);
   if(rep.research) renderEvidence(rep.research);
   if(freeze) await history();
@@ -159,4 +160,19 @@ function renderSources(t3){
     section.append(box);
   }
   $('result').append(section);
+}
+
+function renderContext(context){
+  const panel=document.createElement('section'),title=document.createElement('h3');
+  title.textContent='T4 · Contexto público · '+context.status;panel.append(title);
+  for(const item of context.items){
+    const row=document.createElement('p'),link=document.createElement('a');
+    link.href=item.source;link.target='_blank';link.rel='noopener noreferrer';link.textContent=item.text;
+    row.append(item.category+' · ',link,' · '+item.scope+' · Consulta '+item.checked);
+    if(item.published)row.append(' · Publicación '+item.published);
+    panel.append(row);
+  }
+  for(const s of context.sources){const row=document.createElement('p');row.textContent=s.name+' · '+s.state+(s.checked?' · '+s.checked:'');panel.append(row);}
+  const pending=document.createElement('p');pending.textContent='Por verificar: '+context.pending.join(', ')+'. '+context.scoring_effect+'.';panel.append(pending);
+  $('result').append(panel);
 }
