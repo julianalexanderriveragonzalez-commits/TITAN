@@ -3,7 +3,7 @@ from collections import Counter
 from pathlib import Path
 import json
 
-from titan import _score_team, parse_dt
+from titan import _score_team, blind_evidence, parse_dt
 from second_source import enrich, norm
 
 
@@ -64,12 +64,13 @@ def run(report,payload,evidence):
     stats={n:indicators(t) for n,t in evidence['teams'].items()}
     names=list(payload['teams'])
     cutoff=parse_dt(payload['match']['cutoff'])
-    scores=[_score_team(payload['teams'][n],cutoff)[0] for n in names]
+    blind_teams = [blind_evidence(payload['teams'][n]) for n in names]
+    scores=[_score_team(t,cutoff)[0] for t in blind_teams]
     direction=lambda x:(x>0)-(x<0)
     base=direction(scores[0]-scores[1])
     retained=trials=0
     for i,n in enumerate(names):
-        data=payload['teams'][n]
+        data=blind_teams[i]
         for j in range(len(data['series'])):
             revised=dict(data,series=data['series'][:j]+data['series'][j+1:])
             pair=scores.copy();pair[i]=_score_team(revised,cutoff)[0]

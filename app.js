@@ -16,6 +16,12 @@ async function action(freeze){
   const p=data(); const r=await api(freeze?'/api/freeze':'/api/analyze','POST',p);
   const rep=freeze?r.report:r;
   show((freeze?'Predicción congelada · ID '+r.id+'\n':'')+(rep.tie_break_explanation?'Desempate administrativo: ':'Selección provisional: ')+rep.selection+'\nTipo: '+rep.selection_type+'\nConfianza: '+rep.confidence+'\nEstado: '+rep.evidence_state+'\n\nCarencias:\n'+Object.entries(rep.missing_evidence).map(([team,gaps])=>team+': '+gaps.join('; ')).join('\n')+'\n\nControles pendientes: '+Object.values(rep.controls_R33_R34).filter(v=>v!=='COMPLETADA').length+'\n\n'+(rep.tie_break_explanation||''));
+  if(rep.blind_scoring){
+    const blind=rep.blind_scoring;
+    const line=document.createElement('p');
+    line.textContent='Puntuación ciega · Equipo A: '+blind.scores.A+' · Equipo B: '+blind.scores.B+' · '+(blind.sporting_side?'Indicador favorable a '+blind.sporting_side:'Empate deportivo');
+    $('result').append(line);
+  }
   if(rep.audit) renderAudit(rep.audit);
   if(rep.research) renderEvidence(rep.research);
   if(freeze) await history();

@@ -34,6 +34,40 @@ def parse_dt(s: str) -> datetime:
     return d.astimezone(timezone.utc)
 
 
+def blind_evidence(team):
+    """Only the fields consumed by scoring cross the identity boundary."""
+    result = {}
+    for group, field, allowed in (
+        ('series', 'result', ('W', 'L')),
+        ('mechanisms', 'score', (-1, 0, 1)),
+    ):
+        rows = []
+        for row in team.get(group, []):
+            try:
+                date = parse_dt(row['date']).isoformat()
+            except (KeyError, TypeError, AttributeError, ValueError):
+                date = ''
+            entry = {'date': date, 'source': bool(row.get('source')),
+                     field: row.get(field) if row.get(field) in allowed else None}
+            if group == 'series':
+                entry['format'] = 'BO3' if row.get('format') == 'BO3' else None
+            rows.append(entry)
+        result[group] = rows
+    return result
+
+
+def blind_decision(a, b, cutoff):
+    teams = [blind_evidence(a), blind_evidence(b)]
+    results = [_score_team(team, cutoff) for team in teams]
+    delta = round(results[0][0] - results[1][0], 6)
+    sporting_side = 'A' if delta > 0 else 'B' if delta < 0 else None
+    # On a symmetric tie an obligatory administrative label depends on position.
+    # Select it deterministically from the cutoff, independently of team names.
+    seed = hashlib.sha256(cutoff.isoformat().encode()).digest()
+    side = sporting_side or ('A' if seed[0] % 2 == 0 else 'B')
+    return results, delta, side, sporting_side
+
+
 def _score_team(team: dict[str, Any], cutoff: datetime) -> tuple[float, list[str], list[str], int]:
     """Returns weighted, bounded proxy signal; no odds or fabricated win probability."""
     notes, missing = [], []
@@ -74,19 +108,15 @@ def analyze(data: dict[str, Any]) -> dict[str, Any]:
     cutoff = parse_dt(matchup['cutoff'])
     name_a, name_b = matchup['team_a'], matchup['team_b']
     a = data['teams'][name_a]; b = data['teams'][name_b]
-    sa, notes_a, gaps_a, n_a = _score_team(a, cutoff)
-    sb, notes_b, gaps_b, n_b = _score_team(b, cutoff)
-    delta = round(sa - sb, 6)
-    # Forced tie-break is declared and carries NO competitive significance.
-    # Alphabetical choice is deterministic, unbiased to input order and transparent.
-    if abs(delta) < 1e-9:
-        winner = sorted([name_a, name_b], key=str.casefold)[0]
-        tie = 'Desempate administrativo alfabético, NO evidencia de ventaja competitiva.'
-    else:
-        winner = name_a if delta > 0 else name_b
-        tie = None
+    results, delta, side, sporting_side = blind_decision(a, b, cutoff)
+    (sa, notes_a, gaps_a, n_a), (sb, notes_b, gaps_b, n_b) = results
+    winner = name_a if side == 'A' else name_b
+    tie = None if sporting_side else (
+        'Empate deportivo. Selección administrativa por casilla y hora de corte; '
+        'invertir las casillas puede cambiar el nombre seleccionado.'
+    )
     tasks = {t: 'PENDIENTE' for t in TASKS}
-    tasks['T1_anonimizacion'] = 'PENDIENTE'  # Only identity-separated scoring, not a full blind audit.
+    tasks['T1_anonimizacion'] = 'PARCIAL'  # The scoring step is blind; downstream research reports retain identities.
     tasks['T2_ventana_15_dias'] = 'COMPLETADA'
     tasks['T6_cipi_ciego'] = 'BLOQUEADA'
     tasks['T7_robustez'] = 'BLOQUEADA'
@@ -105,6 +135,8 @@ def analyze(data: dict[str, Any]) -> dict[str, Any]:
         'selection_type': 'PROVISIONAL FORZADA', 'confidence': confidence,
         'evidence_state': evidence_state,
         'proxy_scores_not_probabilities': {name_a:round(sa,3), name_b:round(sb,3)},
+        'blind_scoring': {'status': 'COMPLETADA', 'sporting_side': sporting_side,
+                          'scores': {'A': sa, 'B': sb}, 'administrative': sporting_side is None},
         'difference': delta, 'tie_break_explanation': tie,
         'team_notes': {name_a: notes_a, name_b:notes_b},
         'missing_evidence': gaps, 'tasks': tasks, 'controls_R33_R34': controls,
