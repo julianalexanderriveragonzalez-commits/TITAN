@@ -31,6 +31,7 @@ async function action(freeze){
       const row=document.createElement('p');row.textContent='Muestra prepartido · '+slot+' · '+Object.entries(players).map(([n,c])=>n+': '+c+'/5').join(', ');$('result').append(row);
     }
   }
+  if(rep.multisource) renderSources(rep.multisource);
   if(rep.audit) renderAudit(rep.audit);
   if(rep.research) renderEvidence(rep.research);
   if(freeze) await history();
@@ -139,4 +140,23 @@ function renderIdentity(identity){
     }
   }
   $('result').append(box);
+}
+
+function renderSources(t3){
+  const section=document.createElement('section'),title=document.createElement('h3');
+  title.textContent='T3 · Corroboración multifuente · '+t3.status;section.append(title);
+  function text(parent,value){const el=document.createElement('p');el.textContent=value;parent.append(el);}
+  text(section,'Antes del corte: '+t3.confirmed_before+'/'+t3.series.length+' marcadores y '+t3.kd_before+' registros individuales de K-D corroborados.');
+  text(section,'Última revisión: '+t3.confirmed_review+'/'+t3.series.length+' marcadores y '+t3.kd_review+' registros individuales de K-D corroborados.');
+  for(const r of t3.series){
+    const box=document.createElement('details'),summary=document.createElement('summary');
+    summary.textContent=r.date.slice(0,10)+' · '+r.team+' vs. '+r.opponent+' · '+r.prematch;box.append(summary);
+    text(box,'Última revisión · '+r.review+(r.after_cutoff?' · posterior al corte':''));
+    for(const [label,url,at] of [['BLAST',r.primary,r.primary_checked],['BO3.gg',r.secondary,r.secondary_checked]]){
+      if(url){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=label+' · '+(at||'fecha pendiente');box.append(a,document.createElement('br'));}
+    }
+    for(const p of r.players)text(box,p.player+' · '+p.state);
+    section.append(box);
+  }
+  $('result').append(section);
 }

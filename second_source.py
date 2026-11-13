@@ -109,12 +109,19 @@ def corroborate(name, team, bucket):
     paths=list(dict.fromkeys(index.xpath('//a[starts-with(@href,"/matches/")]/@href')))
     def inspect(s):
         date=parse_dt(s['date']).strftime('%d-%m-%Y')
+        access_failed=False
         for path in [p for p in paths if re.fullmatch(r'/matches/[\w-]+-'+date,p)][:6]:
             try:
                 result=parse_sheet(fetch(path,bucket),name,s,path)
-                if result:return result
-            except (OSError,ValueError,KeyError,IndexError,StopIteration,TypeError):continue
-        return {'state':'SIN CONFIRMAR'}
+                if result:
+                    result['checked_at']=datetime.now(timezone.utc).isoformat()
+                    return result
+            except OSError:
+                access_failed=True
+            except (ValueError,KeyError,IndexError,StopIteration,TypeError):
+                continue
+        return {'state':'ACCESO LIMITADO' if access_failed else 'SIN CONFIRMAR',
+                'checked_at':datetime.now(timezone.utc).isoformat()}
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as workers:
         return dict(zip((s['id'] for s in team['series']),workers.map(inspect,team['series'])))
 
