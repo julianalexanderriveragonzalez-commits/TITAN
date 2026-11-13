@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: titan-cloud-r34
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 cloud:app
+    envVars:
+      - key: TITAN_PASSWORD
+        sync: false
+      - key: TITAN_DB
+        value: /var/data/titan.sqlite3
+    disk:
+      name: titan-db
+      mountPath: /var/data
+      sizeGB: 1
