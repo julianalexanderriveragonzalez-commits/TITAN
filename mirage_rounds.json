@@ -1,0 +1,113 @@
+{
+  "series_id": "7cf00b02-5157-4dc6-8ee8-537102ac3f25",
+  "map": "mirage",
+  "archive_url": "https://www.hltv.org/download/demo/113636",
+  "archive_state": "ACCESO LIMITADO · HTTP 403",
+  "checked": "2026-11-13T19:56:07.630933+00:00",
+  "rounds": [
+    {
+      "number": 10,
+      "sources": [
+        "https://bo3.gg/matches/furia-vs-vitality-12-11-2026/mirage/round-9",
+        "https://bo3.gg/matches/furia-vs-vitality-12-11-2026/mirage/round-10"
+      ],
+      "players": {
+        "YEKINDAR": [
+          0,
+          0
+        ],
+        "molodoy": [
+          4,
+          0
+        ],
+        "FalleN": [
+          0,
+          1
+        ],
+        "KSCERATO": [
+          1,
+          0
+        ],
+        "yuurih": [
+          0,
+          0
+        ],
+        "ropz": [
+          0,
+          1
+        ],
+        "flameZ": [
+          0,
+          1
+        ],
+        "mezii": [
+          1,
+          1
+        ],
+        "ZywOo": [
+          0,
+          1
+        ],
+        "apEX": [
+          0,
+          1
+        ]
+      },
+      "trade_kills_vitality": 0,
+      "event_order": null,
+      "event_intervals": null
+    },
+    {
+      "number": 12,
+      "sources": [
+        "https://bo3.gg/matches/furia-vs-vitality-12-11-2026/mirage/round-11",
+        "https://bo3.gg/matches/furia-vs-vitality-12-11-2026/mirage/round-12"
+      ],
+      "players": {
+        "molodoy": [
+          3,
+          0
+        ],
+        "YEKINDAR": [
+          1,
+          1
+        ],
+        "KSCERATO": [
+          0,
+          1
+        ],
+        "FalleN": [
+          1,
+          1
+        ],
+        "yuurih": [
+          0,
+          0
+        ],
+        "ropz": [
+          2,
+          1
+        ],
+        "mezii": [
+          0,
+          1
+        ],
+        "flameZ": [
+          1,
+          1
+        ],
+        "ZywOo": [
+          0,
+          1
+        ],
+        "apEX": [
+          0,
+          1
+        ]
+      },
+      "trade_kills_vitality": 2,
+      "event_order": null,
+      "event_intervals": null
+    }
+  ]
+}

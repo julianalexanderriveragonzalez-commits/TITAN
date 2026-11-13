@@ -25,7 +25,9 @@ def parse(path):
         end=finishes[0];fraglog=[]
         for d in deaths:
             if not start<=d['tick']<=end['tick'] or {d['attacker_team_num'],d['user_team_num']}!={2,3}:continue
-            fraglog.append({'tick':int(d['tick']),'killer':str(d['attacker_steamid']),'victim':str(d['user_steamid']),'side':int(d['attacker_team_num'])})
+            fraglog.append({'tick':int(d['tick']),'killer':str(d['attacker_steamid']),'victim':str(d['user_steamid']),'side':int(d['attacker_team_num']),'killer_name':str(d['attacker_name']),'victim_name':str(d['user_name'])})
+        for j,frag in enumerate(fraglog):
+            frag['since_previous_ticks'] = frag['tick']-fraglog[j-1]['tick'] if j else None
         trades=[]
         for j,k in enumerate(fraglog):
             # A revenge kill on the original attacker, within 320 simulation ticks.
@@ -36,7 +38,7 @@ def parse(path):
         for side in (2,3):
             group=at[at.team_num==side].drop_duplicates('steamid')
             sides[str(side)]={'steamids':sorted(str(n) for n in group.steamid),'equipment':int(group.current_equip_value.sum()) if len(group)==5 else None}
-        rounds.append({'start':start,'end':int(end['tick']),'winner':int(end['winner']),'opening':fraglog[0] if fraglog else None,'trades':trades,'sides':sides})
+        rounds.append({'start':start,'end':int(end['tick']),'winner':int(end['winner']),'deaths_in_order':fraglog,'opening':fraglog[0] if fraglog else None,'trades':trades,'sides':sides})
     with path.open('rb') as f: digest=hashlib.file_digest(f,'sha256').hexdigest()
     return {'map':parser.parse_header()['map_name'],'sha256':digest,'parsed_at':datetime.now(timezone.utc).isoformat(),'rounds':rounds}
 

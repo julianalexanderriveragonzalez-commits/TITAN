@@ -202,6 +202,18 @@ function renderCasefile(report){
     for(const s of t.series){add(group,'p',s.date.slice(0,10)+' vs. '+s.opponent+' · '+s.maps.map(m=>m.map.replace('de_','')+' '+m.score.join('–')).join(' / '));}
   }
   add(box,'p',f.transferability+' Faltantes: '+f.missing.join(', ')+'.');
+  if(f.round_review){
+    const review=f.round_review, group=document.createElement('details');box.append(group);
+    add(group,'summary','FURIA–Vitality · Mirage · Rondas 10 y 12');
+    add(group,'p','Revisión documental · '+review.checked+' · Demo: '+review.archive_state);
+    for(const r of review.rounds){
+      add(group,'h4','Ronda '+r.number+' · Intercambios de Vitality: '+r.trade_kills_vitality);
+      add(group,'p',Object.entries(r.players).map(([nick,kd])=>nick+' '+kd.join('–')).join(' · '));
+      add(group,'p','Bajas–muertes por diferencia entre planillas acumuladas. Orden de eventos y tiempos pendientes.');
+      for(const [i,url] of r.sources.entries()){const a=add(group,'a','Planilla R'+(r.number-1+i)+' ');a.href=url;a.target='_blank';a.rel='noopener noreferrer';}
+    }
+    const dl=add(group,'a','Demo de la serie · HLTV');dl.href=review.archive_url;dl.target='_blank';dl.rel='noopener noreferrer';
+  }
   if(f.causal){
     add(box,'h4','T5 · Secuencias por ronda');
     for(const [key,title] of [['prematch','Antes del corte'],['latest','Última revisión']]){
