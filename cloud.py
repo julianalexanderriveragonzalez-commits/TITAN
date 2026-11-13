@@ -16,6 +16,7 @@ from http.cookies import CookieError, SimpleCookie
 from wsgiref.simple_server import make_server
 from titan import analyze, parse_dt
 from research import automatic_input
+from identity import build_identity
 from audit import run as audit_match
 
 APP_VERSION = 'TITAN-CLOUD-0.4-R3.4'
@@ -157,13 +158,9 @@ def app(environ, start_response):
             report = analyze(payload)
             if evidence:
                 diagnostics = audit_match(report, payload, evidence)
-                # Keep identifying sheets in the evidence layer while T9 is locked.
-                # The required provisional selection is a separate public output.
-                if report['tasks']['T9_desbloqueo_identidad'] == 'COMPLETADA':
-                    report['research'] = evidence
+                report['identity'] = build_identity(evidence, cutoff)
                 report['audit'] = diagnostics
-                if diagnostics['blind_rosters_complete']:
-                    report['tasks']['T1_anonimizacion'] = 'COMPLETADA'
+                report['tasks']['T1_anonimizacion'] = report['identity']['status']
                 report['window']['player_counts'] = diagnostics['window_player_counts']
                 report['window']['individual_scope'] = 'RETROSPECTIVA' if diagnostics['retrospective'] else 'PREPARTIDO'
                 counts = diagnostics['window_player_counts']

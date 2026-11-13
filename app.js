@@ -22,6 +22,7 @@ async function action(freeze){
     line.textContent='Puntuación ciega · Equipo A: '+blind.scores.A+' · Equipo B: '+blind.scores.B+' · '+(blind.sporting_side?'Indicador favorable a '+blind.sporting_side:'Empate deportivo');
     $('result').append(line);
   }
+  if(rep.identity) renderIdentity(rep.identity);
   if(rep.window){
     const w=rep.window, el=document.createElement('p');
     el.textContent='T1 · '+rep.tasks.T1_anonimizacion+' | T2 · Ventana UTC desde '+w.start_inclusive+' (incluido) hasta '+w.end_exclusive+' (excluido). '+Object.entries(w.teams).map(([n,v])=>n+': '+v.used+'/5 BO3').join(' · ');
@@ -113,4 +114,29 @@ function renderAudit(audit){
   const d=document.createElement('details'),title=document.createElement('summary');title.textContent='Ver los 12 controles R3.3/R3.4';d.append(title);
   for(const [key,v] of Object.entries(audit.controls)){const el=document.createElement('p');el.textContent=key.replaceAll('_',' ')+' · '+v.estado+' · '+v.detalle;d.append(el);}
   parent.append(d);
+}
+
+function renderIdentity(identity){
+  const box=document.createElement('section');
+  const heading=document.createElement('h3');
+  heading.textContent='T1 · '+identity.title+' · '+identity.status;
+  box.append(heading);
+  function text(parent,value){const el=document.createElement('p');el.textContent=value;parent.append(el);}
+  function source(parent,url,label){if(!url)return;const el=document.createElement('a');el.href=url;el.target='_blank';el.rel='noopener noreferrer';el.textContent=label;parent.append(el);}
+  text(box,'Consulta BLAST · '+identity.primary_checked);
+  if(identity.secondary_checked)text(box,'Consulta BO3.gg · '+identity.secondary_checked+(identity.secondary_post_cutoff?' · posterior al corte':''));
+  for(const [team,t] of Object.entries(identity.teams)){
+    text(box,team+' · Plantilla publicada: '+(t.roster.join(', ')||'pendiente'));
+    source(box,t.roster_source,'Ver plantilla');
+    text(box,'Quinteto titular del encuentro: '+t.fixture_lineup+(t.starters.length?' · '+t.starters.join(', '):''));
+    for(const s of t.series){
+      const d=document.createElement('details'), title=document.createElement('summary');
+      title.textContent=s.date.slice(0,10)+' vs. '+s.opponent+' · '+s.prematch_status+' al corte';d.append(title);
+      text(d,'Participación documentada al corte: '+(s.prematch_players.join(', ')||'pendiente'));
+      if(identity.secondary_post_cutoff)text(d,'Revisión posterior · '+s.status+' · '+(s.players.join(', ')||'pendiente'));
+      if(s.outside_roster.length)text(d,'Participantes fuera de la plantilla publicada: '+s.outside_roster.join(', '));
+      source(d,s.source,'Ficha BLAST');source(d,s.secondary_source,' · Ficha BO3.gg');box.append(d);
+    }
+  }
+  $('result').append(box);
 }
