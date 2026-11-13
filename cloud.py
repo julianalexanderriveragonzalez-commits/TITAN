@@ -1,20 +1,18 @@
 """TITAN Cloud R3.4: WSGI web service, stdlib-only MVP.
 
 Run locally with python cloud.py, or in production with gunicorn cloud:app.
-Set TITAN_PASSWORD to a strong password and TITAN_DB to a persistent location.
+Set TITAN_DB to select the SQLite database location.
 """
 from __future__ import annotations
-import base64
 import hashlib
-import hmac
-import html
+import re
 import json
 import os
 import secrets
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import parse_qs
+from http.cookies import CookieError, SimpleCookie
 from wsgiref.simple_server import make_server
 from titan import analyze, parse_dt
 
@@ -31,26 +29,11 @@ def init_database():
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path, timeout=10) as db:
         db.execute('PRAGMA journal_mode=WAL')
-        db.execute('''CREATE TABLE IF NOT EXISTS predictions (
-            id TEXT PRIMARY KEY, created_utc TEXT NOT NULL,
+        db.execute('''CREATE TABLE IF NOT EXISTS browser_predictions (
+            id TEXT PRIMARY KEY, owner TEXT NOT NULL, created_utc TEXT NOT NULL,
             input_json TEXT NOT NULL, report_json TEXT NOT NULL,
             actual_winner TEXT, evaluated_utc TEXT
         )''')
-
-
-def auth_ok(env):
-    expected = os.getenv('TITAN_PASSWORD', '')
-    if not expected:
-        return False
-    header = env.get('HTTP_AUTHORIZATION', '')
-    if not header.startswith('Basic '):
-        return False
-    try:
-        raw = base64.b64decode(header[6:], validate=True).decode('utf-8')
-        user, password = raw.split(':', 1)
-    except (ValueError, UnicodeError):
-        return False
-    return hmac.compare_digest(user, 'titan') and hmac.compare_digest(password, expected)
 
 
 def reply(start, status, body, content_type='application/json; charset=utf-8', extra=()):
@@ -124,10 +107,25 @@ def same_origin(env):
 
 
 def app(environ, start_response):
-    if not auth_ok(environ):
-        return json_reply(start_response, '401 Unauthorized',
-                          {'error':'Autenticación requerida. Usuario: titan'},
-                          [('WWW-Authenticate','Basic realm="TITAN Cloud"')])
+    cookies = SimpleCookie()
+    try:
+        cookies.load(environ.get('HTTP_COOKIE', ''))
+    except CookieError:
+        cookies.clear()
+    cookie = cookies.get('titan_session')
+    token = cookie.value if cookie else ''
+    if not re.fullmatch('[a-f0-9]{64}', token):
+        token = secrets.token_hex(32)
+        secure = environ.get('HTTP_X_FORWARDED_PROTO', environ.get('wsgi.url_scheme')) == 'https'
+        cookie_header = f'titan_session={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000'
+        if secure:
+            cookie_header += '; Secure'
+        original_start = start_response
+
+        def start_response(status, headers):
+            return original_start(status, headers + [('Set-Cookie', cookie_header)])
+
+    owner = hashlib.sha256(token.encode('ascii')).hexdigest()
     method, path = environ.get('REQUEST_METHOD','GET'), environ.get('PATH_INFO','/')
     if method == 'GET' and path == '/':
         p = Path(__file__).with_name('index.html')
@@ -157,13 +155,13 @@ def app(environ, start_response):
             ident = secrets.token_hex(12)
             timestamp = now.isoformat()
             with sqlite3.connect(db_path(), timeout=10) as db:
-                db.execute('INSERT INTO predictions (id, created_utc, input_json, report_json) VALUES (?,?,?,?)',
-                           (ident, timestamp, json.dumps(payload,ensure_ascii=False),json.dumps(report,ensure_ascii=False)))
+                db.execute('INSERT INTO browser_predictions (owner, id, created_utc, input_json, report_json) VALUES (?,?,?,?,?)',
+                           (owner, ident, timestamp, json.dumps(payload,ensure_ascii=False),json.dumps(report,ensure_ascii=False)))
             return json_reply(start_response, '201 Created', {'id':ident,'created_utc':timestamp,'report':report})
         if method == 'GET' and path == '/api/history':
             init_database()
             with sqlite3.connect(db_path(), timeout=10) as db:
-                rows = db.execute('SELECT id,created_utc,report_json,actual_winner,evaluated_utc FROM predictions ORDER BY created_utc DESC LIMIT 100').fetchall()
+                rows = db.execute('SELECT id,created_utc,report_json,actual_winner,evaluated_utc FROM browser_predictions WHERE owner=? ORDER BY created_utc DESC LIMIT 100',(owner,)).fetchall()
             items=[]
             for ident,created,rep,actual,ev in rows:
                 r=json.loads(rep)
@@ -180,7 +178,7 @@ def app(environ, start_response):
             winner = payload.get('winner') if isinstance(payload,dict) else None
             init_database()
             with sqlite3.connect(db_path(), timeout=10) as db:
-                row = db.execute('SELECT report_json,actual_winner FROM predictions WHERE id=?',(ident,)).fetchone()
+                row = db.execute('SELECT report_json,actual_winner FROM browser_predictions WHERE id=? AND owner=?',(ident,owner)).fetchone()
                 if not row: return json_reply(start_response,'404 Not Found',{'error':'Registro no encontrado'})
                 r=json.loads(row[0]); allowed=(r['match']['team_a'],r['match']['team_b'])
                 if winner not in allowed: raise ValueError('Ganador real inválido')
@@ -190,7 +188,7 @@ def app(environ, start_response):
                 if datetime.now(timezone.utc) <= parse_dt(r['match']['cutoff']):
                     return json_reply(start_response,'409 Conflict',{'error':'Aún no pasó el corte temporal del partido'})
                 evaluated = datetime.now(timezone.utc).isoformat()
-                db.execute('UPDATE predictions SET actual_winner=?,evaluated_utc=? WHERE id=? AND actual_winner IS NULL',(winner,evaluated,ident))
+                db.execute('UPDATE browser_predictions SET actual_winner=?,evaluated_utc=? WHERE id=? AND actual_winner IS NULL',(winner,evaluated,ident))
             return json_reply(start_response,'200 OK',{'id':ident,'winner':winner,'correct':winner==r['selection']})
     except (KeyError,TypeError,ValueError,OverflowError) as exc:
         return json_reply(start_response,'400 Bad Request',{'error':str(exc)[:350]})
@@ -203,7 +201,5 @@ if __name__=='__main__':
     parser.add_argument('--host',default='127.0.0.1')
     parser.add_argument('--port',type=int,default=int(os.getenv('PORT','8765')))
     args=parser.parse_args()
-    if not os.getenv('TITAN_PASSWORD'):
-        raise SystemExit('Configura TITAN_PASSWORD antes de iniciar el servidor.')
     print(f'TITAN Cloud escuchando en http://{args.host}:{args.port}')
     with make_server(args.host,args.port,app) as httpd: httpd.serve_forever()

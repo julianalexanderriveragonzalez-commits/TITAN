@@ -1,4 +1,3 @@
-import base64
 import io
 import json
 import os
@@ -12,25 +11,38 @@ from cloud import app
 class CloudTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory()
-        self.env=patch.dict(os.environ,{'TITAN_PASSWORD':'test-only-secret','TITAN_DB':str(Path(self.tmp.name)/'titan.sqlite3')})
+        self.env=patch.dict(os.environ,{'TITAN_DB':str(Path(self.tmp.name)/'titan.sqlite3')})
         self.env.start()
+        self.cookie = ''
     def tearDown(self):
         self.env.stop();self.tmp.cleanup()
-    def request(self,path,method='GET',data=None,authorized=True,origin=None):
+    def request(self,path,method='GET',data=None,origin=None):
         b=json.dumps(data).encode() if data is not None else b''
-        headers=[]
-        auth='Basic '+base64.b64encode(b'titan:test-only-secret').decode() if authorized else ''
-        env={'PATH_INFO':path,'REQUEST_METHOD':method,'CONTENT_LENGTH':str(len(b)),'CONTENT_TYPE':'application/json','wsgi.input':io.BytesIO(b),'HTTP_AUTHORIZATION':auth,'HTTP_HOST':'localhost:8765','wsgi.url_scheme':'http'}
+        env={'PATH_INFO':path,'REQUEST_METHOD':method,'CONTENT_LENGTH':str(len(b)),'CONTENT_TYPE':'application/json','wsgi.input':io.BytesIO(b),'HTTP_COOKIE':self.cookie,'HTTP_HOST':'localhost:8765','wsgi.url_scheme':'http'}
         if origin: env['HTTP_ORIGIN']=origin
         status=[]
-        def start(s,h):status.append(s)
+        def start(s,h):
+            status.append(s)
+            for key, value in h:
+                if key == 'Set-Cookie':
+                    self.cookie = value.split(';')[0]
         raw=b''.join(app(env,start))
         return status[0],json.loads(raw) if path!='/' else raw
     def payload(self,days):
         cutoff=(datetime.now(timezone.utc)+timedelta(days=days)).isoformat()
         return {'match':{'id':'test','team_a':'A','team_b':'B','cutoff':cutoff},'teams':{'A':{'series':[],'mechanisms':[]},'B':{'series':[],'mechanisms':[]}}}
-    def test_auth_required(self):
-        s,_=self.request('/health',authorized=False);self.assertTrue(s.startswith('401'))
+    def test_open_panel(self):
+        status, page = self.request('/')
+        self.assertTrue(status.startswith('200'))
+        self.assertIn(b'Nuevo an', page)
+        self.assertTrue(self.cookie.startswith('titan_session='))
+    def test_separate_histories(self):
+        _, frozen = self.request('/api/freeze','POST',self.payload(2))
+        self.cookie = ''
+        _, history = self.request('/api/history')
+        self.assertEqual(history['items'], [])
+        status, _ = self.request('/api/evaluate/'+frozen['id'],'POST',{'winner':'A'})
+        self.assertTrue(status.startswith('404'))
     def test_analyze_without_fabricating(self):
         s,r=self.request('/api/analyze','POST',self.payload(2));self.assertTrue(s.startswith('200'));self.assertEqual(r['selection_type'],'PROVISIONAL FORZADA');self.assertEqual(len(r['controls_R33_R34']),12)
     def test_freeze_and_history(self):
