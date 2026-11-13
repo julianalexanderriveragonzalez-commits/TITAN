@@ -32,9 +32,9 @@ Abrir `http://127.0.0.1:8765`, usuario `titan` y contraseña configurada. **No e
 ## Despliegue en un servicio web
 
 1. Subir los archivos del proyecto al repositorio de GitHub elegido (sin claves ni bases de datos).
-2. Elegir un proveedor compatible con Python/WSGI y almacenamiento persistente; ejemplo de configuración `render.yaml` para un plan con disco persistente. **Revisar precios, disponibilidad y compatibilidad del plan.**
-3. Crear servicio web a partir del repositorio y especificar `TITAN_PASSWORD` larga y aleatoria. La plantilla espera `TITAN_DB=/var/data/titan.sqlite3` y disco montado en `/var/data`.
-4. Exigir HTTPS, desactivar acceso público no autenticado, y configurar copias de seguridad del volumen. El proveedor entrega una URL que podrás abrir desde Android sin instalar nada.
+2. Abrir el enlace [Desplegar en Render](https://render.com/deploy?repo=https://github.com/julianalexanderriveragonzalez-commits/TITAN) y revisar que el único recurso sea un Web Service Free de $0. Para pruebas sin cargos por excedentes, usar un espacio gratuito sin método de pago.
+3. Configurar `TITAN_PASSWORD` en Render. La plantilla usa `TITAN_DB=/tmp/titan.sqlite3`. El historial de prueba se pierde cuando la instancia se suspende, reinicia o vuelve a desplegarse.
+4. Abrir la dirección HTTPS del servicio desde Android e iniciar sesión como `titan`.
 5. Para varios usuarios hay que reemplazar Basic Auth por cuentas individuales y controles adicionales; **esta versión está pensada para uso personal.**
 
 ### Seguridad e integridad
