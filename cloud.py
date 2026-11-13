@@ -16,6 +16,7 @@ from http.cookies import CookieError, SimpleCookie
 from wsgiref.simple_server import make_server
 from titan import analyze, parse_dt
 from research import automatic_input
+from audit import run as audit_match
 
 APP_VERSION = 'TITAN-CLOUD-0.4-R3.4'
 MAX_BYTES = 120_000
@@ -156,7 +157,11 @@ def app(environ, start_response):
             report = analyze(payload)
             if evidence:
                 report['research'] = evidence
-                report['methodology_notes'].append('Antecedentes de BLAST. Corroboración independiente y auditoría causal pendientes.')
+                diagnostics = audit_match(report, payload, evidence)
+                report['audit'] = diagnostics
+                report['controls_R33_R34'] = {k:v['estado'] for k,v in diagnostics['controls'].items()}
+                report['tasks']['T7_robustez'] = 'PARCIAL' if diagnostics['withdrawals'][1] else 'BLOQUEADA'
+                report['methodology_notes'].append('Las fichas consultadas después del corte solo se usan para revisión retrospectiva.')
 
             if path.endswith('analyze'):
                 return json_reply(start_response, '200 OK', report)

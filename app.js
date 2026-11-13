@@ -15,7 +15,8 @@ async function action(freeze){
   show($('manual').checked?'Analizando datos manuales…':'Buscando el encuentro y comprobando mapas y jugadores en BLAST…');
   const p=data(); const r=await api(freeze?'/api/freeze':'/api/analyze','POST',p);
   const rep=freeze?r.report:r;
-  show((freeze?'Predicción congelada · ID '+r.id+'\n':'')+(rep.tie_break_explanation?'Desempate administrativo: ':'Selección provisional: ')+rep.selection+'\nTipo: '+rep.selection_type+'\nConfianza: '+rep.confidence+'\nEstado: '+rep.evidence_state+'\n\nCarencias:\n'+Object.entries(rep.missing_evidence).map(([team,gaps])=>team+': '+gaps.join('; ')).join('\n')+'\n\nControles pendientes: '+Object.keys(rep.controls_R33_R34).length+'\n\n'+(rep.tie_break_explanation||''));
+  show((freeze?'Predicción congelada · ID '+r.id+'\n':'')+(rep.tie_break_explanation?'Desempate administrativo: ':'Selección provisional: ')+rep.selection+'\nTipo: '+rep.selection_type+'\nConfianza: '+rep.confidence+'\nEstado: '+rep.evidence_state+'\n\nCarencias:\n'+Object.entries(rep.missing_evidence).map(([team,gaps])=>team+': '+gaps.join('; ')).join('\n')+'\n\nControles pendientes: '+Object.values(rep.controls_R33_R34).filter(v=>v!=='COMPLETADA').length+'\n\n'+(rep.tie_break_explanation||''));
+  if(rep.audit) renderAudit(rep.audit);
   if(rep.research) renderEvidence(rep.research);
   if(freeze) await history();
  }catch(e){show('Error: '+e.message)}
@@ -58,6 +59,12 @@ function renderEvidence(audit){
       const body=document.createElement('div');
       body.textContent=s.maps.map(m=>m.map.replace('de_','')+' '+m.score.join('–')).join(' · ');
       details.append(body);
+      if(s.verification){
+        const v=s.verification, ref=document.createElement(v.source?'a':'span');
+        if(v.source){ref.href=v.source;ref.target='_blank';ref.rel='noopener noreferrer';}
+        ref.textContent='BO3.gg · '+v.state;
+        details.append(ref);
+      }
       for(const [player,maps] of Object.entries(s.players)){
         const row=document.createElement('div');
         row.textContent=player+' · '+Object.entries(maps).map(([n,v])=>'M'+n+' '+v.kills+'–'+v.deaths+' K-D, ADR '+(v.adr??'s/d')).join(' / ');
@@ -66,5 +73,29 @@ function renderEvidence(audit){
       const link=document.createElement('a');link.href=s.source;link.textContent='Ver ficha BLAST';link.target='_blank';link.rel='noopener noreferrer';details.append(link);
     }
   }
-  line('Páginas sin datos utilizables: '+audit.unavailable_pages+'. Pendientes: segunda fuente, demos y controles causales R3.4.');
+  line('Páginas sin datos utilizables: '+audit.unavailable_pages+'. Ver cobertura por control en la auditoría.');
+}
+
+function renderAudit(audit){
+  const parent=$('result');
+  function line(text){const el=document.createElement('p');el.textContent=text;parent.append(el);}
+  line((audit.retrospective?'Revisión posterior al corte · ':'Auditoría · ')+audit.confirmed+'/'+audit.series+' series corroboradas, '+audit.sample+'/50 observaciones individuales y '+audit.rounds+' rondas en '+audit.maps+' mapas.');
+  for(const [name,team] of Object.entries(audit.teams)){
+    const v=team.counts;
+    line(name+' · Aperturas convertidas: '+(v.converted||0)+'/'+(v.opens||0)+'. Recuperaciones tras primera baja: '+(v.recovered||0)+'/'+(v.lost_open||0)+'. Bajas de intercambio registradas: '+(v.trades||0)+'. Rondas ganadas con menor equipamiento: '+(v.down_buy_wins||0)+'/'+(v.down_buy||0)+'.');
+    const d=document.createElement('details'),summary=document.createElement('summary');
+    summary.textContent='Observaciones individuales · '+name;d.append(summary);
+    for(const [nick,rows] of Object.entries(team.players)){
+      const el=document.createElement('div');el.textContent=nick+' · '+rows.length+'/5';d.append(el);
+      for(const r of rows){const a=document.createElement('a');a.href=r.source;a.target='_blank';a.rel='noopener noreferrer';a.textContent=r.date.slice(0,10)+' vs. '+r.opponent+' · '+r.kills+'–'+r.deaths+' K-D · '+r.adr+' ADR';d.append(a,document.createElement('br'));}
+    }
+    parent.append(d);
+  }
+  for(const [alias,axes] of Object.entries(audit.cipi_diagnostic||{})){
+    const box=document.createElement('details'),label=document.createElement('summary');label.textContent='CIPI descriptivo · '+alias;box.append(label);
+    for(const [axis,value] of Object.entries(axes)){const row=document.createElement('div');row.textContent=axis+' · '+value;box.append(row);}parent.append(box);
+  }
+  const d=document.createElement('details'),title=document.createElement('summary');title.textContent='Ver los 12 controles R3.3/R3.4';d.append(title);
+  for(const [key,v] of Object.entries(audit.controls)){const el=document.createElement('p');el.textContent=key.replaceAll('_',' ')+' · '+v.estado+' · '+v.detalle;d.append(el);}
+  parent.append(d);
 }

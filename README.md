@@ -51,3 +51,9 @@ Conector de fuentes autorizadas -> validador de datos -> parser CS2 -> tabla de 
 ```bash
 python -m unittest discover -s tests -v
 ```
+
+## Auditoría por antecedente
+
+En modo automático, TITAN busca las fichas de BO3.gg por equipo y fecha y comprueba rivales, nombres de mapa y marcadores desde la perspectiva de cada equipo. El informe cuenta fichas individuales de serie por nombre y fuente. Las estadísticas de ronda proceden de las tablas públicas por clan y se admiten cuando la secuencia y el marcador reconstruido coinciden. Una consulta posterior al corte queda en una revisión retrospectiva separada. La retirada individual de series prueba el indicador provisional. El resumen CIPI es descriptivo; conservar la etiqueta provisional mientras falten pruebas.
+
+Para procesar un archivo original de demo en un entorno de análisis con Python 3.11 o posterior, instalar demoparser2==0.42.2 y ejecutar `python tools/parse_demo.py partida.dem salida.json`. El lector calcula aperturas, intercambios dentro de 320 ticks y equipamiento al terminar la compra. Los resultados incluyen huella SHA-256. La distribución del archivo original requiere una fuente accesible y atribución al mapa correcto. Las tablas por ronda de BO3.gg y la lectura directa de binarios tienen procedencias distintas.
