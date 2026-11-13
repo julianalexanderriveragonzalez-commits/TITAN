@@ -34,7 +34,44 @@ def parse_dt(s: str) -> datetime:
     return d.astimezone(timezone.utc)
 
 
-def blind_evidence(team):
+def window_rows(rows, cutoff, series=False):
+    """Return distinct dated evidence in [cutoff - 15 days, cutoff)."""
+    admitted = []
+    seen = set()
+    reasons = {}
+    for row in rows:
+        reason = None
+        try:
+            start = parse_dt(row['date'])
+            finish = parse_dt(row['finished_at']) if row.get('finished_at') else start
+            if not cutoff - timedelta(days=15) <= start < cutoff:
+                reason = 'fuera de ventana'
+            elif finish < start or finish >= cutoff:
+                reason = 'fin de serie incompatible'
+        except (AttributeError, KeyError, TypeError, ValueError):
+            reason = 'fecha inválida'
+        if not reason and series and (row.get('format') != 'BO3' or row.get('result') not in ('W', 'L')):
+            reason = 'formato o resultado inválido'
+        if not reason and not row.get('source'):
+            reason = 'sin fuente'
+        if not reason and not series and row.get('score') not in (-1, 0, 1):
+            reason = 'valor de mecanismo inválido'
+        if not reason:
+            keys = [('id', str(row['id']))] if row.get('id') else []
+            keys.append(('source', str(row['source']), start) if series else
+                        ('signal', str(row['source']), start, str(row.get('type', row.get('mechanism',''))), row['score']))
+            if any(k in seen for k in keys):
+                reason = 'duplicada'
+            else:
+                seen.update(keys)
+                admitted.append(row)
+        if reason:
+            reasons[reason] = reasons.get(reason, 0) + 1
+    admitted.sort(key=lambda row: parse_dt(row['date']), reverse=True)
+    return admitted, reasons
+
+
+def blind_evidence(team, cutoff=None):
     """Only the fields consumed by scoring cross the identity boundary."""
     result = {}
     for group, field, allowed in (
@@ -42,7 +79,10 @@ def blind_evidence(team):
         ('mechanisms', 'score', (-1, 0, 1)),
     ):
         rows = []
-        for row in team.get(group, []):
+        records = team.get(group, [])
+        if cutoff is not None:
+            records, _ = window_rows(records, cutoff, group == 'series')
+        for row in records:
             try:
                 date = parse_dt(row['date']).isoformat()
             except (KeyError, TypeError, AttributeError, ValueError):
@@ -57,7 +97,7 @@ def blind_evidence(team):
 
 
 def blind_decision(a, b, cutoff):
-    teams = [blind_evidence(a), blind_evidence(b)]
+    teams = [blind_evidence(a, cutoff), blind_evidence(b, cutoff)]
     results = [_score_team(team, cutoff) for team in teams]
     delta = round(results[0][0] - results[1][0], 6)
     sporting_side = 'A' if delta > 0 else 'B' if delta < 0 else None
@@ -137,6 +177,11 @@ def analyze(data: dict[str, Any]) -> dict[str, Any]:
         'proxy_scores_not_probabilities': {name_a:round(sa,3), name_b:round(sb,3)},
         'blind_scoring': {'status': 'COMPLETADA', 'sporting_side': sporting_side,
                           'scores': {'A': sa, 'B': sb}, 'administrative': sporting_side is None},
+        'window': {
+            'start_inclusive': (cutoff-timedelta(days=15)).isoformat(), 'end_exclusive': cutoff.isoformat(),
+            'teams': {alias: {'eligible': len(window_rows(team.get('series',[]),cutoff,True)[0]),
+                              'used': used,'excluded':window_rows(team.get('series',[]),cutoff,True)[1]}
+                      for alias,team,used in [('Equipo A',a,n_a),('Equipo B',b,n_b)]}},
         'difference': delta, 'tie_break_explanation': tie,
         'team_notes': {name_a: notes_a, name_b:notes_b},
         'missing_evidence': gaps, 'tasks': tasks, 'controls_R33_R34': controls,

@@ -156,9 +156,24 @@ def app(environ, start_response):
                     })
             report = analyze(payload)
             if evidence:
-                report['research'] = evidence
                 diagnostics = audit_match(report, payload, evidence)
+                # Keep identifying sheets in the evidence layer while T9 is locked.
+                # The required provisional selection is a separate public output.
+                if report['tasks']['T9_desbloqueo_identidad'] == 'COMPLETADA':
+                    report['research'] = evidence
                 report['audit'] = diagnostics
+                if diagnostics['blind_rosters_complete']:
+                    report['tasks']['T1_anonimizacion'] = 'COMPLETADA'
+                report['window']['player_counts'] = diagnostics['window_player_counts']
+                report['window']['individual_scope'] = 'RETROSPECTIVA' if diagnostics['retrospective'] else 'PREPARTIDO'
+                counts = diagnostics['window_player_counts']
+                if diagnostics['retrospective']:
+                    report['window']['prematch_player_counts'] = {
+                        slot: {f'Jugador {i}':count for i,count in enumerate(evidence['teams'][name]['player_series'].values(),1)}
+                        for slot,name in zip(('Equipo A','Equipo B'),(payload['match']['team_a'],payload['match']['team_b']))}
+                else:
+                    report['window']['prematch_player_counts'] = counts
+
                 report['controls_R33_R34'] = {k:v['estado'] for k,v in diagnostics['controls'].items()}
                 report['tasks']['T7_robustez'] = 'PARCIAL' if diagnostics['withdrawals'][1] else 'BLOQUEADA'
                 report['methodology_notes'].append('Las fichas consultadas después del corte solo se usan para revisión retrospectiva.')

@@ -22,6 +22,14 @@ async function action(freeze){
     line.textContent='Puntuación ciega · Equipo A: '+blind.scores.A+' · Equipo B: '+blind.scores.B+' · '+(blind.sporting_side?'Indicador favorable a '+blind.sporting_side:'Empate deportivo');
     $('result').append(line);
   }
+  if(rep.window){
+    const w=rep.window, el=document.createElement('p');
+    el.textContent='T1 · '+rep.tasks.T1_anonimizacion+' | T2 · Ventana UTC desde '+w.start_inclusive+' (incluido) hasta '+w.end_exclusive+' (excluido). '+Object.entries(w.teams).map(([n,v])=>n+': '+v.used+'/5 BO3').join(' · ');
+    $('result').append(el);
+    for(const [slot,players] of Object.entries(w.prematch_player_counts||{})){
+      const row=document.createElement('p');row.textContent='Muestra prepartido · '+slot+' · '+Object.entries(players).map(([n,c])=>n+': '+c+'/5').join(', ');$('result').append(row);
+    }
+  }
   if(rep.audit) renderAudit(rep.audit);
   if(rep.research) renderEvidence(rep.research);
   if(freeze) await history();
@@ -93,8 +101,9 @@ function renderAudit(audit){
     summary.textContent='Observaciones individuales · '+name;d.append(summary);
     for(const [nick,rows] of Object.entries(team.players)){
       const el=document.createElement('div');el.textContent=nick+' · '+rows.length+'/5';d.append(el);
-      for(const r of rows){const a=document.createElement('a');a.href=r.source;a.target='_blank';a.rel='noopener noreferrer';a.textContent=r.date.slice(0,10)+' vs. '+r.opponent+' · '+r.kills+'–'+r.deaths+' K-D · '+r.adr+' ADR';d.append(a,document.createElement('br'));}
+      for(const r of rows){const a=document.createElement('span');a.textContent=r.date.slice(0,10)+' vs. '+r.opponent+' · '+r.kills+'–'+r.deaths+' K-D · '+r.adr+' ADR';d.append(a,document.createElement('br'));}
     }
+    const floor=document.createElement('p');floor.textContent=team.floor_ratings?'Ratings de serie: '+team.floor_ratings+' · Alertas <0,80: '+(team.floor_alerts.map(x=>x.player+' '+x.rating).join(', ')||'ninguna'):'Piso colectivo: faltan ratings comparables de serie.';d.append(floor);
     parent.append(d);
   }
   for(const [alias,axes] of Object.entries(audit.cipi_diagnostic||{})){

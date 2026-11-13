@@ -3,8 +3,39 @@ from collections import Counter
 from pathlib import Path
 import json
 
-from titan import _score_team, blind_evidence, parse_dt
+from titan import _score_team, blind_evidence, parse_dt, window_rows
 from second_source import enrich, norm
+
+
+def blind_sheets(evidence, names, cutoff):
+    result = {}
+    for slot, name in zip(('Equipo A', 'Equipo B'), names):
+        raw = evidence['teams'][name]
+        roster = list(raw['player_series'])
+        aliases = {nick: f'Jugador {i}' for i, nick in enumerate(roster, 1)}
+        matches, _ = window_rows(raw['series'], cutoff, series=True)
+        opponents = {}
+        sheets = []
+        for i, original in enumerate(matches[:5], 1):
+            opponent = opponents.setdefault(original['opponent'], f'Rival {len(opponents)+1}')
+            ver = original.get('verification', {})
+            lines = {}
+            for nick, alias in aliases.items():
+                found = [v for k,v in ver.get('players', {}).items() if norm(k)==norm(nick)]
+                if len(found)!=1 or sum(norm(other)==norm(nick) for other in roster)!=1:
+                    continue
+                line = found[0]
+                lines[alias] = {k: line[k] for k in ('kills','deaths','adr','series_rating')
+                                if type(line.get(k)) in (int,float)}
+            sheets.append({'date': original['date'], 'opponent': opponent,
+                           'map_count':len(original.get('maps',[])),
+                           'verification': {'state':ver.get('state'), 'players':lines,
+                              'source':f'{slot} · serie {i}', 'side':ver.get('side'),
+                              'rounds':ver.get('rounds',{})}})
+        result[slot] = {'player_series':list(aliases.values()), 'series':sheets,
+                        'roster_unambiguous':len({norm(n) for n in roster if norm(n)})==5 and len(roster)==5,
+                        'conflict_count':len(raw.get('score_conflicts',[]))}
+    return result
 
 
 def indicators(team):
@@ -42,7 +73,11 @@ def indicators(team):
                     counts['shock']+=1
                     counts['response']+=r['win']
             map_history.append({'map':mapname,'rival':s['opponent'],'source':v['source'],'rounds':len(rr)})
-    return {'counts':dict(counts),'players':observations,'maps':map_history}
+    floor_alerts=[{'player':nick,'series':row['source'],'rating':row['series_rating']}
+                  for nick,rows in observations.items() for row in rows
+                  if 'series_rating' in row and row['series_rating'] < 0.80]
+    return {'counts':dict(counts),'players':observations,'maps':map_history,'floor_alerts':floor_alerts,
+            'floor_ratings':sum('series_rating' in r for rows in observations.values() for r in rows)}
 
 
 def run(report,payload,evidence):
@@ -61,10 +96,11 @@ def run(report,payload,evidence):
     else:
         enrich(evidence)
         retro=parse_dt(evidence['second_source_checked'])>=parse_dt(evidence['cutoff'])
-    stats={n:indicators(t) for n,t in evidence['teams'].items()}
-    names=list(payload['teams'])
+    names=[payload['match']['team_a'],payload['match']['team_b']]
     cutoff=parse_dt(payload['match']['cutoff'])
-    blind_teams = [blind_evidence(payload['teams'][n]) for n in names]
+    sheets=blind_sheets(evidence,names,cutoff)
+    stats={slot:indicators(team) for slot,team in sheets.items()}
+    blind_teams = [blind_evidence(payload['teams'][n], cutoff) for n in names]
     scores=[_score_team(t,cutoff)[0] for t in blind_teams]
     direction=lambda x:(x>0)-(x<0)
     base=direction(scores[0]-scores[1])
@@ -78,9 +114,9 @@ def run(report,payload,evidence):
             retained+=direction(pair[0]-pair[1])==base
     count=lambda k:sum(v['counts'].get(k,0) for v in stats.values())
     samples=sum(min(5,len({r['source'] for r in rows})) for t in stats.values() for rows in t['players'].values())
-    conflicts=sum(len(t.get('score_conflicts',[]))+sum(s.get('verification',{}).get('state')=='CONTRADICCIÓN' for s in t['series']) for t in evidence['teams'].values())
-    total=sum(len(t['series']) for t in evidence['teams'].values())
-    deciders=sum(t['observed']['deciders'][1] for t in evidence['teams'].values())
+    conflicts=sum(t['conflict_count']+sum(s.get('verification',{}).get('state')=='CONTRADICCIÓN' for s in t['series']) for t in sheets.values())
+    total=sum(len(t['series']) for t in sheets.values())
+    deciders=sum(s['map_count']==3 for t in sheets.values() for s in t['series'])
     checks={}
     def check(k,state,why):
         checks[k]={'estado':state,'detalle':why}
@@ -106,6 +142,8 @@ def run(report,payload,evidence):
             'STR': f"{c.get('converted',0)}/{c.get('opens',0)} aperturas convertidas",
             'ADP': f"{c.get('response',0)}/{c.get('shock',0)} respuestas tras tres pérdidas",
             'LOG': 'Pendiente de documentación de viajes y recuperación',
-            'OPP': f"{len({s['opponent'] for s in evidence['teams'][list(evidence['teams'])[index]]['series']})} rivales documentados; comparación de estilos pendiente"
+            'OPP': f"{len({s['opponent'] for s in sheets[list(sheets)[index]]['series']})} rivales documentados; comparación de estilos pendiente"
         }
-    return {'cipi_diagnostic':cipi,'controls':checks,'teams':stats,'retrospective':retro,'sample':samples,'series':total,'confirmed':count('confirmed'),'rounds':count('rounds'),'maps':count('maps'),'withdrawals':[retained,trials]}
+    roster_ok=all(t['roster_unambiguous'] for t in sheets.values())
+    sample_window={slot:{player:len(rows) for player,rows in t['players'].items()} for slot,t in stats.items()}
+    return {'blind_rosters_complete':roster_ok,'window_player_counts':sample_window,'cipi_diagnostic':cipi,'controls':checks,'teams':stats,'retrospective':retro,'sample':samples,'series':total,'confirmed':count('confirmed'),'rounds':count('rounds'),'maps':count('maps'),'withdrawals':[retained,trials]}
