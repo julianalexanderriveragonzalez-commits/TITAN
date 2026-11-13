@@ -15,6 +15,7 @@ from pathlib import Path
 from http.cookies import CookieError, SimpleCookie
 from wsgiref.simple_server import make_server
 from titan import analyze, parse_dt
+from research import automatic_input
 
 APP_VERSION = 'TITAN-CLOUD-0.4-R3.4'
 MAX_BYTES = 120_000
@@ -144,7 +145,19 @@ def app(environ, start_response):
         if method == 'POST' and path in ('/api/analyze','/api/freeze'):
             payload = process_json(environ)
             cutoff = validate_input(payload)
+            evidence = None
+            if payload.get('research_mode') == 'automatic':
+                try:
+                    payload['teams'], evidence = automatic_input(payload['match'])
+                except (OSError, ValueError, KeyError, TypeError, IndexError) as exc:
+                    return json_reply(start_response, '422 Unprocessable Entity', {
+                        'error': 'Investigación pendiente. ' + (str(exc) if isinstance(exc, ValueError) else 'BLAST no entregó evidencia utilizable.')
+                    })
             report = analyze(payload)
+            if evidence:
+                report['research'] = evidence
+                report['methodology_notes'].append('Antecedentes de BLAST. Corroboración independiente y auditoría causal pendientes.')
+
             if path.endswith('analyze'):
                 return json_reply(start_response, '200 OK', report)
             now = datetime.now(timezone.utc)

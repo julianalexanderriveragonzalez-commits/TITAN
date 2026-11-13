@@ -3,7 +3,7 @@ const $ = id => document.getElementById(id);
 function data() {
   const a=$('a').value.trim(),b=$('b').value.trim(),d=$('date').value;
   if(!a || !b || a===b || !d) throw Error('Introduce dos equipos distintos y la fecha del encuentro.');
-  return {match:{id:crypto.randomUUID(),team_a:a,team_b:b,cutoff:d+':00-05:00'},teams:{[a]:JSON.parse($('sa').value),[b]:JSON.parse($('sb').value)}};
+  return {research_mode:$('manual').checked?'manual':'automatic',match:{id:crypto.randomUUID(),team_a:a,team_b:b,cutoff:d+':00-05:00'},teams:{[a]:$('manual').checked?JSON.parse($('sa').value):{},[b]:$('manual').checked?JSON.parse($('sb').value):{}}};
 }
 async function api(url,method='GET',body){
   const r=await fetch(url,{method,headers:method==='POST'?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,cache:'no-store'});
@@ -12,10 +12,11 @@ async function api(url,method='GET',body){
 function show(text){$('result').textContent=text;}
 async function action(freeze){
  try{
-  show('Procesando información…');
+  show($('manual').checked?'Analizando datos manuales…':'Buscando el encuentro y comprobando mapas y jugadores en BLAST…');
   const p=data(); const r=await api(freeze?'/api/freeze':'/api/analyze','POST',p);
   const rep=freeze?r.report:r;
-  show((freeze?'Predicción congelada · ID '+r.id+'\n':'')+'Ganador seleccionado: '+rep.selection+'\nTipo: '+rep.selection_type+'\nConfianza: '+rep.confidence+'\nEstado: '+rep.evidence_state+'\n\nCarencias:\n'+Object.entries(rep.missing_evidence).map(([team,gaps])=>team+': '+gaps.join('; ')).join('\n')+'\n\nControles pendientes: '+Object.keys(rep.controls_R33_R34).length+'\n\n'+(rep.tie_break_explanation||''));
+  show((freeze?'Predicción congelada · ID '+r.id+'\n':'')+(rep.tie_break_explanation?'Desempate administrativo: ':'Selección provisional: ')+rep.selection+'\nTipo: '+rep.selection_type+'\nConfianza: '+rep.confidence+'\nEstado: '+rep.evidence_state+'\n\nCarencias:\n'+Object.entries(rep.missing_evidence).map(([team,gaps])=>team+': '+gaps.join('; ')).join('\n')+'\n\nControles pendientes: '+Object.keys(rep.controls_R33_R34).length+'\n\n'+(rep.tie_break_explanation||''));
+  if(rep.research) renderEvidence(rep.research);
   if(freeze) await history();
  }catch(e){show('Error: '+e.message)}
 }
@@ -36,3 +37,34 @@ async function history(){
  }catch(e){$('history').textContent='Error: '+e.message}
 }
 history();
+
+function renderEvidence(audit){
+  const panel=$('result');
+  function line(text){const el=document.createElement('div');el.textContent=text;panel.append(el);}
+  function source(text,url){const a=document.createElement('a');a.textContent=text;a.href=url;a.target='_blank';a.rel='noopener noreferrer';panel.append(a);}
+  line('Fuente y cobertura');
+  source(audit.tournament+' · '+audit.stage,audit.source);
+  if(audit.fixture_corroboration) source(' · Segunda referencia del cruce',audit.fixture_corroboration);
+  line('Consulta: '+audit.retrieved+(audit.cached_snapshot?' · copia documental previa al encuentro':''));
+  for(const [name,t] of Object.entries(audit.teams)){
+    line(name+' · '+t.series.length+'/5 BO3 verificados');
+    if(t.observed) line('Mapas decisivos ganados: '+t.observed.deciders.join('/')+' · Series remontadas tras perder el primer mapa: '+t.observed.comebacks.join('/'));
+    line('Series con todos los mapas por jugador: '+(Object.entries(t.player_series).map(([n,c])=>n+' '+c+'/5').join(', ')||'sin alineación verificable'));
+    for(const url of t.score_conflicts||[]) source('Ficha excluida: marcador de serie y mapas incompatibles',url);
+    for(const s of t.series){
+      const details=document.createElement('details'), label=document.createElement('summary');
+      label.textContent=s.date.slice(0,10)+' vs. '+s.opponent+' · '+s.result;
+      details.append(label);panel.append(details);
+      const body=document.createElement('div');
+      body.textContent=s.maps.map(m=>m.map.replace('de_','')+' '+m.score.join('–')).join(' · ');
+      details.append(body);
+      for(const [player,maps] of Object.entries(s.players)){
+        const row=document.createElement('div');
+        row.textContent=player+' · '+Object.entries(maps).map(([n,v])=>'M'+n+' '+v.kills+'–'+v.deaths+' K-D, ADR '+(v.adr??'s/d')).join(' / ');
+        details.append(row);
+      }
+      const link=document.createElement('a');link.href=s.source;link.textContent='Ver ficha BLAST';link.target='_blank';link.rel='noopener noreferrer';details.append(link);
+    }
+  }
+  line('Páginas sin datos utilizables: '+audit.unavailable_pages+'. Pendientes: segunda fuente, demos y controles causales R3.4.');
+}

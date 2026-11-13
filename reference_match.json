@@ -1,0 +1,750 @@
+{
+ "source": "https://blast.tv/cs/tournaments/rivals-2026-season-2/match/0d409c57/vitality-mouz",
+ "tournament": "BLAST Premier Rivals Hong Kong 2026",
+ "stage": "Quarter Final 2",
+ "cutoff": "2026-11-13T08:00:00+00:00",
+ "retrieved": "2026-11-13T05:15:24.737614+00:00",
+ "teams": {
+  "Vitality": {
+   "observed": {
+    "deciders": [
+     1,
+     2
+    ],
+    "comebacks": [
+     1,
+     2
+    ]
+   },
+   "profile": "https://blast.tv/cs/team/9b29b611/vitality",
+   "score_conflicts": [
+    "https://blast.tv/cs/tournaments/pgl-belgrade-2026/match/e02911dd/vitality-mouz"
+   ],
+   "series": [
+    {
+     "id": "7cf00b02-5157-4dc6-8ee8-537102ac3f25",
+     "date": "2026-11-12T04:30:00+00:00",
+     "finished_at": "2026-11-12T06:45:45+00:00",
+     "format": "BO3",
+     "source": "https://blast.tv/cs/tournaments/rivals-2026-season-2/match/7cf00b02/furia-vitality",
+     "result": "L",
+     "opponent": "FURIA",
+     "maps": [
+      {
+       "map": "de_inferno",
+       "score": [
+        13,
+        5
+       ]
+      },
+      {
+       "map": "de_dust2",
+       "score": [
+        10,
+        13
+       ]
+      },
+      {
+       "map": "de_mirage",
+       "score": [
+        0,
+        13
+       ]
+      }
+     ],
+     "players": {
+      "apEX": {
+       "1": {
+        "kills": 9,
+        "deaths": 11,
+        "adr": 74.52941176470588,
+        "firstKills": 1,
+        "utilityDamage": 324
+       },
+       "2": {
+        "kills": 12,
+        "deaths": 15,
+        "adr": 63.18181818181818,
+        "firstKills": 2,
+        "utilityDamage": 209
+       },
+       "3": {
+        "kills": 1,
+        "deaths": 13,
+        "adr": 21.615384615384617,
+        "firstKills": 0,
+        "utilityDamage": 54
+       }
+      },
+      "flameZ": {
+       "1": {
+        "kills": 20,
+        "deaths": 12,
+        "adr": 112.44444444444444,
+        "firstKills": 4,
+        "utilityDamage": 132
+       },
+       "2": {
+        "kills": 20,
+        "deaths": 13,
+        "adr": 87.28571428571429,
+        "firstKills": 5,
+        "utilityDamage": 96
+       },
+       "3": {
+        "kills": 4,
+        "deaths": 13,
+        "adr": 56.92307692307692,
+        "firstKills": 1,
+        "utilityDamage": 133
+       }
+      },
+      "ropz": {
+       "1": {
+        "kills": 11,
+        "deaths": 7,
+        "adr": 70.27777777777777,
+        "firstKills": 1,
+        "utilityDamage": 311
+       },
+       "2": {
+        "kills": 20,
+        "deaths": 12,
+        "adr": 106.66666666666667,
+        "firstKills": 2,
+        "utilityDamage": 157
+       },
+       "3": {
+        "kills": 15,
+        "deaths": 13,
+        "adr": 93.23076923076923,
+        "firstKills": 0,
+        "utilityDamage": 132
+       }
+      },
+      "mezii": {
+       "1": {
+        "kills": 24,
+        "deaths": 7,
+        "adr": 108.66666666666667,
+        "firstKills": 3,
+        "utilityDamage": 134
+       },
+       "2": {
+        "kills": 12,
+        "deaths": 17,
+        "adr": 72.81818181818181,
+        "firstKills": 2,
+        "utilityDamage": 144
+       },
+       "3": {
+        "kills": 6,
+        "deaths": 13,
+        "adr": 50.15384615384615,
+        "firstKills": 1,
+        "utilityDamage": 6
+       }
+      },
+      "ZywOo": {
+       "1": {
+        "kills": 12,
+        "deaths": 9,
+        "adr": 88.2,
+        "firstKills": 2,
+        "utilityDamage": 27
+       },
+       "2": {
+        "kills": 9,
+        "deaths": 12,
+        "adr": 52,
+        "firstKills": 1,
+        "utilityDamage": 38
+       },
+       "3": {
+        "kills": 2,
+        "deaths": 13,
+        "adr": 26.384615384615383,
+        "firstKills": 0,
+        "utilityDamage": 1
+       }
+      }
+     }
+    },
+    {
+     "id": "cfce2be1-8197-4a5d-aff0-dfbd7e99e321",
+     "date": "2026-11-11T04:30:00+00:00",
+     "finished_at": "2026-11-11T06:17:08.522000+00:00",
+     "format": "BO3",
+     "source": "https://blast.tv/cs/tournaments/rivals-2026-season-2/match/cfce2be1/vitality-falcons",
+     "result": "W",
+     "opponent": "Team Falcons",
+     "maps": [
+      {
+       "map": "de_anubis",
+       "score": [
+        13,
+        10
+       ]
+      },
+      {
+       "map": "de_dust2",
+       "score": [
+        13,
+        10
+       ]
+      }
+     ],
+     "players": {
+      "apEX": {
+       "1": {
+        "kills": 12,
+        "deaths": 18,
+        "adr": 57.86363636363637,
+        "firstKills": 2,
+        "utilityDamage": 232
+       },
+       "2": {
+        "kills": 13,
+        "deaths": 16,
+        "adr": 80.95238095238095,
+        "firstKills": 1,
+        "utilityDamage": 437
+       }
+      },
+      "flameZ": {
+       "1": {
+        "kills": 14,
+        "deaths": 19,
+        "adr": 82.17391304347827,
+        "firstKills": 3,
+        "utilityDamage": 56
+       },
+       "2": {
+        "kills": 16,
+        "deaths": 17,
+        "adr": 82.54545454545455,
+        "firstKills": 4,
+        "utilityDamage": 179
+       }
+      },
+      "mezii": {
+       "1": {
+        "kills": 18,
+        "deaths": 13,
+        "adr": 94.73684210526316,
+        "firstKills": 2,
+        "utilityDamage": 44
+       },
+       "2": {
+        "kills": 12,
+        "deaths": 12,
+        "adr": 65.66666666666667,
+        "firstKills": 1,
+        "utilityDamage": 200
+       }
+      },
+      "ropz": {
+       "1": {
+        "kills": 21,
+        "deaths": 15,
+        "adr": 89.73913043478261,
+        "firstKills": 0,
+        "utilityDamage": 129
+       },
+       "2": {
+        "kills": 19,
+        "deaths": 10,
+        "adr": 100.88888888888889,
+        "firstKills": 3,
+        "utilityDamage": 175
+       }
+      },
+      "ZywOo": {
+       "1": {
+        "kills": 16,
+        "deaths": 17,
+        "adr": 67.57142857142857,
+        "firstKills": 3,
+        "utilityDamage": 64
+       },
+       "2": {
+        "kills": 20,
+        "deaths": 10,
+        "adr": 98.28571428571429,
+        "firstKills": 5,
+        "utilityDamage": 12
+       }
+      }
+     }
+    },
+    {
+     "id": "2f51b079-852c-4528-bf1f-27d068d288af",
+     "date": "2026-10-30T12:00:00+00:00",
+     "finished_at": null,
+     "format": "BO3",
+     "source": "https://blast.tv/cs/tournaments/pgl-belgrade-2026/match/2f51b079/vitality-nemiga",
+     "result": "L",
+     "opponent": "Nemiga",
+     "maps": [
+      {
+       "map": "de_cache",
+       "score": [
+        8,
+        13
+       ]
+      },
+      {
+       "map": "de_dust2",
+       "score": [
+        11,
+        13
+       ]
+      }
+     ],
+     "players": {}
+    },
+    {
+     "id": "1be8808e-f197-439e-a7bf-37b9690ce517",
+     "date": "2026-10-29T10:15:00+00:00",
+     "finished_at": null,
+     "format": "BO3",
+     "source": "https://blast.tv/cs/tournaments/pgl-belgrade-2026/match/1be8808e/vitality-navi",
+     "result": "W",
+     "opponent": "Natus Vincere",
+     "maps": [
+      {
+       "map": "de_cache",
+       "score": [
+        5,
+        13
+       ]
+      },
+      {
+       "map": "de_mirage",
+       "score": [
+        13,
+        9
+       ]
+      },
+      {
+       "map": "de_dust2",
+       "score": [
+        13,
+        6
+       ]
+      }
+     ],
+     "players": {}
+    }
+   ],
+   "player_series": {
+    "apEX": 2,
+    "flameZ": 2,
+    "mezii": 2,
+    "ropz": 2,
+    "ZywOo": 2
+   }
+  },
+  "MOUZ": {
+   "observed": {
+    "deciders": [
+     1,
+     2
+    ],
+    "comebacks": [
+     1,
+     1
+    ]
+   },
+   "profile": "https://blast.tv/cs/team/05b375da/mouz",
+   "score_conflicts": [],
+   "series": [
+    {
+     "id": "2f085fab-1e1e-4de1-ae9a-3d743bb17f46",
+     "date": "2026-11-12T07:00:00+00:00",
+     "finished_at": "2026-11-12T10:31:34.513000+00:00",
+     "format": "BO3",
+     "source": "https://blast.tv/cs/tournaments/rivals-2026-season-2/match/2f085fab/fut-mouz",
+     "result": "W",
+     "opponent": "FUT Esports",
+     "maps": [
+      {
+       "map": "de_cache",
+       "score": [
+        16,
+        19
+       ]
+      },
+      {
+       "map": "de_mirage",
+       "score": [
+        16,
+        14
+       ]
+      },
+      {
+       "map": "de_nuke",
+       "score": [
+        13,
+        4
+       ]
+      }
+     ],
+     "players": {
+      "PR": {
+       "1": {
+        "kills": 19,
+        "deaths": 25,
+        "adr": 76.12903225806451,
+        "firstKills": 1,
+        "utilityDamage": 160
+       },
+       "2": {
+        "kills": 18,
+        "deaths": 23,
+        "adr": 91.88888888888889,
+        "firstKills": 2,
+        "utilityDamage": 273
+       },
+       "3": {
+        "kills": 14,
+        "deaths": 9,
+        "adr": 78.0625,
+        "firstKills": 1,
+        "utilityDamage": 15
+       }
+      },
+      "Spinx": {
+       "1": {
+        "kills": 29,
+        "deaths": 22,
+        "adr": 87.54285714285714,
+        "firstKills": 4,
+        "utilityDamage": 417
+       },
+       "2": {
+        "kills": 23,
+        "deaths": 20,
+        "adr": 90.03448275862068,
+        "firstKills": 1,
+        "utilityDamage": 463
+       },
+       "3": {
+        "kills": 12,
+        "deaths": 9,
+        "adr": 97.33333333333333,
+        "firstKills": 1,
+        "utilityDamage": 104
+       }
+      },
+      "torzsi": {
+       "1": {
+        "kills": 31,
+        "deaths": 21,
+        "adr": 99.21875,
+        "firstKills": 4,
+        "utilityDamage": 35
+       },
+       "2": {
+        "kills": 25,
+        "deaths": 21,
+        "adr": 82.62068965517241,
+        "firstKills": 6,
+        "utilityDamage": 66
+       },
+       "3": {
+        "kills": 14,
+        "deaths": 7,
+        "adr": 88.58823529411765,
+        "firstKills": 2,
+        "utilityDamage": 9
+       }
+      },
+      "xelex": {
+       "1": {
+        "kills": 28,
+        "deaths": 24,
+        "adr": 76.18181818181819,
+        "firstKills": 8,
+        "utilityDamage": 297
+       },
+       "2": {
+        "kills": 17,
+        "deaths": 23,
+        "adr": 81.65384615384616,
+        "firstKills": 3,
+        "utilityDamage": 121
+       },
+       "3": {
+        "kills": 10,
+        "deaths": 11,
+        "adr": 68.06666666666666,
+        "firstKills": 2,
+        "utilityDamage": 38
+       }
+      },
+      "xertioN": {
+       "1": {
+        "kills": 16,
+        "deaths": 26,
+        "adr": 62.36363636363637,
+        "firstKills": 4,
+        "utilityDamage": 199
+       },
+       "2": {
+        "kills": 26,
+        "deaths": 19,
+        "adr": 80.58620689655173,
+        "firstKills": 3,
+        "utilityDamage": 225
+       },
+       "3": {
+        "kills": 14,
+        "deaths": 10,
+        "adr": 91.29411764705883,
+        "firstKills": 3,
+        "utilityDamage": 21
+       }
+      }
+     }
+    },
+    {
+     "id": "9821f1ac-9f46-4710-b625-360ed15a44b8",
+     "date": "2026-11-11T09:30:00+00:00",
+     "finished_at": "2026-11-11T12:47:01.580000+00:00",
+     "format": "BO3",
+     "source": "https://blast.tv/cs/tournaments/rivals-2026-season-2/match/9821f1ac/mouz-g2",
+     "result": "L",
+     "opponent": "G2",
+     "maps": [
+      {
+       "map": "de_nuke",
+       "score": [
+        13,
+        7
+       ]
+      },
+      {
+       "map": "de_ancient",
+       "score": [
+        14,
+        16
+       ]
+      },
+      {
+       "map": "de_inferno",
+       "score": [
+        7,
+        13
+       ]
+      }
+     ],
+     "players": {
+      "torzsi": {
+       "1": {
+        "kills": 14,
+        "deaths": 9,
+        "adr": 79.41176470588235,
+        "firstKills": 2,
+        "utilityDamage": 74
+       },
+       "2": {
+        "kills": 14,
+        "deaths": 22,
+        "adr": 60.785714285714285,
+        "firstKills": 5,
+        "utilityDamage": 14
+       },
+       "3": {
+        "kills": 11,
+        "deaths": 14,
+        "adr": 56.526315789473685,
+        "firstKills": 2,
+        "utilityDamage": 113
+       }
+      },
+      "xelex": {
+       "1": {
+        "kills": 8,
+        "deaths": 10,
+        "adr": 64.5,
+        "firstKills": 1,
+        "utilityDamage": 56
+       },
+       "2": {
+        "kills": 23,
+        "deaths": 21,
+        "adr": 88.25,
+        "firstKills": 4,
+        "utilityDamage": 317
+       },
+       "3": {
+        "kills": 14,
+        "deaths": 13,
+        "adr": 65.26315789473684,
+        "firstKills": 1,
+        "utilityDamage": 75
+       }
+      },
+      "xertioN": {
+       "1": {
+        "kills": 17,
+        "deaths": 12,
+        "adr": 110.3157894736842,
+        "firstKills": 4,
+        "utilityDamage": 204
+       },
+       "2": {
+        "kills": 14,
+        "deaths": 21,
+        "adr": 54.607142857142854,
+        "firstKills": 2,
+        "utilityDamage": 231
+       },
+       "3": {
+        "kills": 12,
+        "deaths": 15,
+        "adr": 81.35,
+        "firstKills": 2,
+        "utilityDamage": 322
+       }
+      },
+      "PR": {
+       "1": {
+        "kills": 16,
+        "deaths": 10,
+        "adr": 77.47368421052632,
+        "firstKills": 1,
+        "utilityDamage": 71
+       },
+       "2": {
+        "kills": 18,
+        "deaths": 23,
+        "adr": 74.6896551724138,
+        "firstKills": 2,
+        "utilityDamage": 264
+       },
+       "3": {
+        "kills": 7,
+        "deaths": 13,
+        "adr": 76.77777777777777,
+        "firstKills": 1,
+        "utilityDamage": 292
+       }
+      },
+      "Spinx": {
+       "1": {
+        "kills": 19,
+        "deaths": 8,
+        "adr": 116.93333333333334,
+        "firstKills": 3,
+        "utilityDamage": 44
+       },
+       "2": {
+        "kills": 25,
+        "deaths": 21,
+        "adr": 86.24137931034483,
+        "firstKills": 1,
+        "utilityDamage": 301
+       },
+       "3": {
+        "kills": 12,
+        "deaths": 12,
+        "adr": 80.8,
+        "firstKills": 2,
+        "utilityDamage": 60
+       }
+      }
+     }
+    },
+    {
+     "id": "7ddb400a-a983-41ff-85e5-d7d02bac4e73",
+     "date": "2026-11-07T09:45:00+00:00",
+     "finished_at": null,
+     "format": "BO3",
+     "source": "https://blast.tv/cs/tournaments/iem-china-2026/match/7ddb400a/mouz-bb",
+     "result": "W",
+     "opponent": "BetBoom",
+     "maps": [
+      {
+       "map": "de_ancient",
+       "score": [
+        13,
+        7
+       ]
+      },
+      {
+       "map": "de_mirage",
+       "score": [
+        13,
+        8
+       ]
+      }
+     ],
+     "players": {}
+    },
+    {
+     "id": "6ea102ee-893d-43ee-853f-7482d86a732e",
+     "date": "2026-11-04T07:00:00+00:00",
+     "finished_at": null,
+     "format": "BO3",
+     "source": "https://blast.tv/cs/tournaments/iem-china-2026/match/6ea102ee/mouz-parivision",
+     "result": "W",
+     "opponent": "Parivision",
+     "maps": [
+      {
+       "map": "de_ancient",
+       "score": [
+        13,
+        2
+       ]
+      },
+      {
+       "map": "de_mirage",
+       "score": [
+        13,
+        9
+       ]
+      }
+     ],
+     "players": {}
+    },
+    {
+     "id": "aa842235-9c86-4650-b4c5-58365dab8656",
+     "date": "2026-11-03T06:00:00+00:00",
+     "finished_at": null,
+     "format": "BO3",
+     "source": "https://blast.tv/cs/tournaments/iem-china-2026/match/aa842235/mouz-bb",
+     "result": "W",
+     "opponent": "BetBoom",
+     "maps": [
+      {
+       "map": "de_ancient",
+       "score": [
+        13,
+        6
+       ]
+      },
+      {
+       "map": "de_mirage",
+       "score": [
+        16,
+        14
+       ]
+      }
+     ],
+     "players": {}
+    }
+   ],
+   "player_series": {
+    "PR": 2,
+    "Spinx": 2,
+    "torzsi": 2,
+    "xelex": 2,
+    "xertioN": 2
+   }
+  }
+ },
+ "unavailable_pages": 0,
+ "fixture_corroboration": "https://www.hltv.org/news/45978/spirit-through-to-hong-kong-semis-as-blast-rivals-bracket-is-set"
+}

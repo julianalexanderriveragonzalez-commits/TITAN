@@ -10,9 +10,13 @@ Esta versión adapta el motor experimental **TITAN-4.1-R3.4** para usarlo desde 
 - Permite registrar **una única vez** el ganador real, después del corte, sin modificar la predicción previa.
 - Acceso sin contraseña. Cada navegador conserva su propio historial temporal mediante una cookie. Los registros anteriores a este cambio quedan fuera del panel público.
 
+## Investigación automática
+
+El botón Investigar y analizar localiza equipos por su identificador en el directorio público de BLAST, confirma el cruce y la hora exacta de Colombia, y consulta hasta diez fichas por equipo. Verifica marcadores BO3 de los quince días anteriores, registra hasta cinco series por equipo y cuenta la participación de los jugadores de la plantilla publicada a partir de estadísticas por mapa. Cada antecedente conserva su URL. La cobertura se limita a las fichas disponibles. Un marcador inconsistente se excluye. Para Vitality–MOUZ del 13 de noviembre se incluye una captura de datos fechada antes del encuentro. El modo manual sigue disponible.
+
 ## No implementado todavía
 
-- Conexiones autorizadas a HLTV u otras fuentes y verificación automática de URL.
+- Auditoría automática multifuente de mecanismos causales.
 - Descarga o interpretación automática de demos `.dem` (requiere parser real, archivos demo y trabajo de validación).
 - Auditoría de 50 observaciones individuales, 10 reconstrucciones causales completas, anonimato procesal certificado, CIPI, HFE, CCE, PVE, BMA, MSI, SER, AME, DME, VSR, ECC.
 - Vigilancia continua de próximos partidos o notificaciones. Son fases pendientes.
