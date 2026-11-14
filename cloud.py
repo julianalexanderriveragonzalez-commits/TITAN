@@ -15,6 +15,7 @@ from pathlib import Path
 from http.cookies import CookieError, SimpleCookie
 from wsgiref.simple_server import make_server
 from titan import prepare_review, finalize_review, parse_dt
+from engines import chain, review as review_engines
 from competitive_review import evaluate as compare_portfolios
 from titan import TASKS
 from postmatch import official_result, review as postmatch_review
@@ -204,8 +205,17 @@ def app(environ, start_response):
                 names = [payload['match'][key] for key in ('team_a','team_b')]
                 missing = [k.split('_')[0] for k in TASKS[:5] if report['tasks'][k]!='COMPLETADA']
                 comparison = {'side':None,'families':[],'trials':[],'survives':False}
-                if not missing:
+                motor_findings,motor_sources=review_engines(report,groups,evidence)
+                pending_engines=[name for name,entry in motor_findings.items()
+                                 if name!='CIPI' and entry['finding']!='COMPLETADA']
+                if not missing and not pending_engines:
                     comparison = compare_portfolios(groups,[report['osint']['rest_hours'][n] for n in names])
+                comparison['pending_engines']=pending_engines
+                if comparison['side']:
+                    motor_findings['CIPI']=dict(finding='COMPLETADA',detail=comparison['reason'],
+                                                data={'families':comparison['families'],'survives':comparison['survives']})
+                report['engines']=chain(motor_findings)
+                report['engine_sources']=motor_sources
                 comparison['pending_steps'] = missing
                 comparison['sources'] = [[{'series':r['id'],'urls':r['sources']} for r in g] for g in groups]
                 comparison['documented_series'] = [len(g) for g in groups]

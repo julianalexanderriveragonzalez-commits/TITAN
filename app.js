@@ -28,6 +28,47 @@ function renderReport(rep,id){
     if(trial)summary+='\nAl retirar '+(trial.group==='series'?'la serie':'el mecanismo')+' del '+trial.date.slice(0,10)+' (equipo '+trial.team+'), la ventaja del indicador '+(trial.margin===0?'desaparece.':'se invierte.');
     show(summary+'\n\n'+$('result').textContent);
   }
+  if(rep.engines){
+    const panel=document.createElement('details'),title=document.createElement('summary');
+    title.textContent='Verificación de los seis motores';panel.append(title);
+    for(const motor of rep.engines){
+      const row=document.createElement('details'),label=document.createElement('summary');
+      label.textContent=motor.engine+' · '+motor.status+(motor.blocked_by?' · requiere '+motor.blocked_by:'');
+      const note=document.createElement('p');note.textContent=motor.detail;
+      row.append(label,note);
+      if(motor.engine==='PVE'){
+        for(const [alias,x] of Object.entries(motor.data)){
+          const p=document.createElement('p');p.textContent=alias+' · '+x.series+' series · piso '+x.minimum+
+          ' · dispersión '+x.deviation+' · cambios '+x.changes+' · media del quinteto '+x.team_mean+' · otros cuatro '+x.peers_mean;
+          row.append(p);
+        }
+      }
+      if(motor.engine==='MSI'){
+        for(const [k,v] of Object.entries(motor.data)){
+          const p=document.createElement('p');p.textContent=k+' · '+(typeof v==='object' && v ? Object.entries(v).map(([team,n])=>team+' '+n).join(', '):v??'pendiente');
+          row.append(p);
+        }
+      }
+      if(motor.engine==='CCE'){
+        for(const x of motor.data){
+          const p=document.createElement('p');p.textContent=x.team+' · '+x.series+' · jugadores bajo el piso: '+x.players.join(', ')+' · recuperaciones con intercambio: '+x.traded_recoveries;row.append(p);
+        }
+      }
+      if(motor.engine==='HFE'){
+        for(const x of motor.data){
+          const p=document.createElement('p');p.textContent=x.team+' · '+x.series+' · siguientes rondas ganadas/observadas: '+
+            ['lost_advantage','comeback','close'].map((k,i)=>['pérdida de 5v4','ventaja neutralizada','cierre'][i]+' '+x.situations[k][1]+'/'+x.situations[k][0]).join(' · ');row.append(p);
+        }
+      }
+      if(motor.engine==='BMA'){
+        motor.data.repeated.forEach((group,i)=>{for(const ex of group){
+          const p=document.createElement('p');p.textContent=['A','B'][i]+' · '+ex.context.join(' / ')+' · series: '+ex.examples.map(x=>x.series).join(', ');row.append(p);
+        }});
+      }
+      panel.append(row);
+    }
+    $('result').append(panel);
+  }
   if(rep.verdict){
     const v=rep.verdict;
     const heading=document.createElement('h3');

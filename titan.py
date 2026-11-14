@@ -5,6 +5,7 @@ It never fabricates data and reports missing evidence explicitly.
 """
 from __future__ import annotations
 from pillars import audit_pillars
+from engines import chain, review as review_engines, verified
 import argparse
 import hashlib
 import json
@@ -283,7 +284,11 @@ def finalize_review(report):
     decision = report.get('cipi_decision', {})
     side = decision.get('side')
     mapping = decision.get('aliases')
-    authorized = (not blockers and side in names and mapping == names
+    if 'engines' not in report:
+        findings, sources = review_engines(report, [[], []])
+        report['engines'] = chain(findings)
+        report['engine_sources'] = sources
+    authorized = (verified(report['engines']) and not blockers and side in names and mapping == names
                   and decision.get('input_sha256') == report['input_sha256']
                   and decision.get('robust_side') == side
                   and report.get('volatility', {}).get('formal_status') == 'COMPLETADA'

@@ -17,13 +17,19 @@ def series_record(series, roster, rating, confirmed):
         return None
     counts = Counter()
     contexts = Counter()
+    situations={k:[0,0] for k in ("lost_advantage","comeback","close")}
+    map_responses=[]
+    recovery_sequences={}
     for game in series['maps']:
         name = game['map'].removeprefix('de_')
         rounds = ver.get('rounds', {}).get(name, [])
         if not rounds or len(rounds) != sum(game['score']):
             return None
+        map_recoveries=map_deficits=0
         losses = 0
         previous = None
+        lead = peak = own_score = enemy_score = 0
+        lost_advantage = comeback = False
         for pair in rounds:
             own, other = pair[side], pair[1-side]
             opening = own.get('first_kills'), own.get('first_death')
@@ -35,6 +41,19 @@ def series_record(series, roster, rating, confirmed):
                 return None
             win = own['win']
             opened = bool(opening[0])
+            map_deficits+=int(not opened)
+            map_recoveries+=int(not opened and win)
+            for key,active in [('lost_advantage',lost_advantage),('comeback',comeback),
+                               ('close',own_score==enemy_score and own_score>=11)]:
+                if active:
+                    situations[key][0]+=1
+                    situations[key][1]+=win
+            lost_advantage=opened and not win
+            own_score+=win
+            enemy_score+=1-win
+            lead=own_score-enemy_score
+            comeback=peak>=3 and lead==0
+            peak=0 if comeback else max(peak,lead)
             counts['opens' if opened else 'deficits'] += 1
             counts['converted' if opened else 'recovered'] += win
             counts['traded_recovery'] += int(not opened and win and own['trade_kills']>0)
@@ -48,11 +67,15 @@ def series_record(series, roster, rating, confirmed):
             losses = 0 if win else losses+1
             previous = lane
             economy = (own['equipment_value']>other['equipment_value'])-(own['equipment_value']<other['equipment_value'])
+            if not opened:
+                recovery_sequences.setdefault((name,lane,economy),[]).append((win,own['trade_kills']>0))
             contexts[name,lane,economy,opened,'opportunities'] += 1
             contexts[name,lane,economy,opened,'wins'] += win
+        map_responses.append((name,map_recoveries,map_deficits))
     if not all(type(p.get('rating')) in (int,float) and p.get('kast') for p in board.values()):
         return None
-    return {'id':series['id'],'opponent':series['opponent'],'ratings':[p['rating'] for p in board.values()],
+    return {'recovery_sequences':recovery_sequences,'maps':map_responses,'date':series['date'],'situations':situations,'player_ratings':[board[n.casefold()]['rating'] for n in roster],
+            'id':series['id'],'opponent':series['opponent'],'ratings':[p['rating'] for p in board.values()],
             'counts':dict(counts),'contexts':contexts,'sources':[series['source'],ver['source'],rating['source']]}
 
 

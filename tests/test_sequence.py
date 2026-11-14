@@ -21,6 +21,8 @@ class SequenceTests(unittest.TestCase):
         r = prepare_review(dict(match=match,teams={'Uno':{},'Dos':{}}))
         # Simulate accepted outputs of T1–T8 to exercise the downstream contract.
         r['tasks'].update(dict.fromkeys(TASKS[:8], 'COMPLETADA'))
+        from engines import ORDER, chain
+        r['engines']=chain({n:{'finding':'COMPLETADA'} for n in ORDER})
         r['cipi_decision'] = dict(side='A', robust_side='A', aliases={'A':'Uno','B':'Dos'},
                                   input_sha256=r['input_sha256'])
         r['volatility'] = dict(formal_status='COMPLETADA',conclusion='CONTRADICCIÓN Y VOLATILIDAD REVISADAS')

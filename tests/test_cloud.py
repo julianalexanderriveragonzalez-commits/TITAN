@@ -176,6 +176,8 @@ class SequentialGateTests(unittest.TestCase):
     def test_checked_blind_identity_and_every_prior_step(self):
         from titan import finalize_review, TASKS
         self.report['tasks'].update(dict.fromkeys(TASKS[:8], 'COMPLETADA'))
+        from engines import ORDER, chain
+        self.report['engines']=chain({n:{'finding':'COMPLETADA'} for n in ORDER})
         self.report['cipi_decision'] = {'side':'A', 'robust_side':'A', 'aliases':{'A':'X','B':'Y'},
                                         'input_sha256':self.report['input_sha256']}
         self.report['volatility'] = {'formal_status':'COMPLETADA','conclusion':'CONTRADICCIÓN Y VOLATILIDAD REVISADAS'}

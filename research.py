@@ -156,7 +156,7 @@ def research(match):
                 n = r.get('mapNumber')
                 if nick and type(n) == int and 1 <= n <= len(maps) and type(r.get('kills')) is int and type(r.get('deaths')) is int:
                     lines.setdefault(nick,{})[n] = {k:r.get(k) for k in ('kills','deaths','adr','firstKills','utilityDamage')}
-            series.append({'id':m['id'],'date':start.isoformat(),'finished_at':end.isoformat() if end else None,'format':'BO3','source':HOST+path,'result':'W' if scores[side]==2 else 'L','opponent':m[['teamB','teamA'][side]]['name'],'maps':[{'map':g['name'],'score':[g['teamAScore'],g['teamBScore']][::1 if side==0 else -1]} for g in maps],'players':lines})
+            series.append({'id':m['id'],'date':start.isoformat(),'stage_format':(m.get('stage') or {}).get('format'),'finished_at':end.isoformat() if end else None,'format':'BO3','source':HOST+path,'result':'W' if scores[side]==2 else 'L','opponent':m[['teamB','teamA'][side]]['name'],'maps':[{'map':g['name'],'score':[g['teamAScore'],g['teamBScore']][::1 if side==0 else -1]} for g in maps],'players':lines})
         series.sort(key=lambda s:s['date'],reverse=True)
         series=series[:5]
         teams[name]={'series':series,'mechanisms':[]}
@@ -173,7 +173,7 @@ def research(match):
         if checked < cutoff and normalize(name) in lineups:
             report[name]['fixture_lineup_evidence'] = {
                 'players':lineups[normalize(name)], 'source':HOST+target, 'checked_at':checked.isoformat()}
-    return teams, {'source':HOST+target,'tournament':fixture['tournament']['name'],'stage':fixture['name'],'cutoff':cutoff.isoformat(),'retrieved':datetime.now(timezone.utc).isoformat(),'reconstructed':historical,'teams':report,'unavailable_pages':sum(item is None for item in details.values())}
+    return teams, {'source':HOST+target,'tournament':fixture['tournament']['name'],'stage':fixture['name'],'stage_format':(fixture.get('stage') or {}).get('format'),'modality':(fixture.get('metadata') or {}).get('modality'),'cutoff':cutoff.isoformat(),'retrieved':datetime.now(timezone.utc).isoformat(),'reconstructed':historical,'teams':report,'unavailable_pages':sum(item is None for item in details.values())}
 
 
 def automatic_input(match):

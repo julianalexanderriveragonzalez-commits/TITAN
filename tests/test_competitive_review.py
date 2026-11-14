@@ -92,6 +92,8 @@ class CompetitiveTests(TestCase):
              patch('cloud.collect_sources',return_value=network), \
              patch('osint_context.headlines',return_value=('CONSULTADA',checked,[])):
             r=json.loads(b''.join(app(env,lambda status,headers:None)))
-        self.assertEqual(r['selection_basis'],'CIPI',r.get('cipi_review'))
+        self.assertNotEqual(r['selection_basis'],'CIPI')
+        self.assertEqual([x['status'] for x in r['engines'][:3]], ['COMPLETADA','COMPLETADA','PARCIAL'])
+        self.assertEqual(r['engines'][-1]['blocked_by'],'BMA')
         self.assertEqual(r['selection'],'Alpha')
-        self.assertTrue(all(s['status']=='COMPLETADA' for s in r['sequence'][:10]))
+        self.assertEqual(r['sequence'][5]['status'],'BLOQUEADA')
