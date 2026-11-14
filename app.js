@@ -15,12 +15,29 @@ async function action(freeze){
   show($('manual').checked?'Analizando datos manuales…':'Buscando el encuentro y comprobando mapas y jugadores en BLAST…');
   const p=data(); const r=await api(freeze?'/api/freeze':'/api/analyze','POST',p);
   const rep=freeze?r.report:r;
-  renderReport(rep,freeze?r.id:null);
-  if(freeze) await history();
+  renderReport(rep,rep.snapshot_id || (freeze?r.id:null));
+  if(freeze || rep.snapshot_id) await history();
  }catch(e){show('Error: '+e.message)}
 }
 function renderReport(rep,id){
   show((id?'Predicción congelada · ID '+id+'\n':'')+(rep.tie_break_explanation?'Desempate administrativo: ':'Selección provisional: ')+rep.selection+'\nTipo: '+rep.selection_type+'\nConfianza: '+rep.confidence+'\nEstado: '+rep.evidence_state+'\n\nCarencias:\n'+Object.entries(rep.missing_evidence).map(([team,gaps])=>team+': '+gaps.join('; ')).join('\n')+'\n\nControles pendientes: '+Object.values(rep.controls_R33_R34).filter(v=>v!=='COMPLETADA').length+'\n\n'+(rep.tie_break_explanation||''));
+  if(rep.identity_release){
+    const gate=rep.identity_release;
+    let summary='T9 · '+gate.status+' · '+gate.reason+'\nElección por '+rep.selection_basis+'.';
+    const trial=gate.sensitive_withdrawals[0];
+    if(trial)summary+='\nAl retirar '+(trial.group==='series'?'la serie':'el mecanismo')+' del '+trial.date.slice(0,10)+' (equipo '+trial.team+'), la ventaja del indicador '+(trial.margin===0?'desaparece.':'se invierte.');
+    show(summary+'\n\n'+$('result').textContent);
+  }
+  if(rep.snapshot_id){
+    const download=document.createElement('button');
+    download.textContent='Descargar expediente congelado';
+    download.onclick=()=>{
+      const url=URL.createObjectURL(new Blob([JSON.stringify(rep,null,2)],{type:'application/json'}));
+      const link=document.createElement('a');link.href=url;link.download='TITAN-'+rep.snapshot_id+'.json';
+      link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    };
+    $('result').append(download);
+  }
   if(rep.blind_scoring){
     const blind=rep.blind_scoring;
     const line=document.createElement('p');

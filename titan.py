@@ -96,11 +96,16 @@ def blind_evidence(team, cutoff=None):
     return result
 
 
-def blind_decision(a, b, cutoff):
+def blind_scores(a, b, cutoff):
     teams = [blind_evidence(a, cutoff), blind_evidence(b, cutoff)]
     results = [_score_team(team, cutoff) for team in teams]
     delta = round(results[0][0] - results[1][0], 6)
     sporting_side = 'A' if delta > 0 else 'B' if delta < 0 else None
+    return results, delta, sporting_side
+
+
+def blind_decision(a, b, cutoff):
+    results, delta, sporting_side = blind_scores(a, b, cutoff)
     # On a symmetric tie an obligatory administrative label depends on position.
     # Select it deterministically from the cutoff, independently of team names.
     seed = hashlib.sha256(cutoff.isoformat().encode()).digest()
@@ -190,15 +195,14 @@ def robustness(data, cutoff):
     return out
 
 
-def analyze(data: dict[str, Any]) -> dict[str, Any]:
+def prepare_review(data: dict[str, Any]) -> dict[str, Any]:
     """Deterministic locked pre-match report. Never uses later match results."""
     matchup = data['match']
     cutoff = parse_dt(matchup['cutoff'])
     name_a, name_b = matchup['team_a'], matchup['team_b']
     a = data['teams'][name_a]; b = data['teams'][name_b]
-    results, delta, side, sporting_side = blind_decision(a, b, cutoff)
+    results, delta, sporting_side = blind_scores(a, b, cutoff)
     (sa, notes_a, gaps_a, n_a), (sb, notes_b, gaps_b, n_b) = results
-    winner = name_a if side == 'A' else name_b
     tie = None if sporting_side else (
         'Empate deportivo. Selección administrativa por casilla y hora de corte; '
         'invertir las casillas puede cambiar el nombre seleccionado.'
@@ -209,7 +213,7 @@ def analyze(data: dict[str, Any]) -> dict[str, Any]:
     tasks['T6_cipi_ciego'] = 'BLOQUEADA'
     tasks['T7_robustez'] = 'BLOQUEADA'
     tasks['T9_desbloqueo_identidad'] = 'BLOQUEADA'
-    tasks['T10_veredicto'] = 'COMPLETADA'  # Mandatory provisional selection only.
+    tasks['T10_veredicto'] = 'PENDIENTE'
     tasks['T11_postpartido'] = 'PENDIENTE TEMPORAL'
     # 12 controls are NOT marked completed from merely having one row of evidence.
     controls = {c: 'PENDIENTE' for c in CONTROL_NAMES}
@@ -219,7 +223,7 @@ def analyze(data: dict[str, Any]) -> dict[str, Any]:
     evidence_state = 'CERROJO DOCUMENTAL INCOMPLETO'
     confidence = 'MUY BAJA' if not readiness or abs(delta) < .15 else 'BAJA'
     report = {
-        'version': VERSION, 'match': matchup, 'selection': winner,
+        'version': VERSION, 'match': matchup,
         'selection_type': 'PROVISIONAL FORZADA', 'confidence': confidence,
         'evidence_state': evidence_state,
         'proxy_scores_not_probabilities': {name_a:round(sa,3), name_b:round(sb,3)},
@@ -244,6 +248,53 @@ def analyze(data: dict[str, Any]) -> dict[str, Any]:
     report['robustness'] = robustness(data,cutoff)
     report['input_sha256'] = hashlib.sha256(json.dumps(data, sort_keys=True,ensure_ascii=False).encode()).hexdigest()
     return report
+
+
+def finalize_review(report):
+    """Only this boundary may resolve a blind side to a published team."""
+    tasks = report['tasks']
+    steps = [{'step': key.split('_')[0], 'status': tasks[key]} for key in TASKS[:8]]
+    blockers = [s['step'] for s in steps if s['status'] != 'COMPLETADA']
+    blind = report['blind_scoring']
+    match = report['match']
+    names = {'A': match['team_a'], 'B': match['team_b']}
+    stress = report['robustness']
+    sensitive = sorted((row for row in stress['withdrawals'] if row['margin'] <= 0),
+                       key=lambda row: (row['margin'], row['group'] != 'series'))
+    # Only an upstream, server-produced blind decision and its T7/T8 evidence
+    # can unlock identity. The fallback score has no authority to unlock it.
+    decision = report.get('cipi_decision', {})
+    side = decision.get('side')
+    mapping = decision.get('aliases')
+    authorized = (not blockers and side in names and mapping == names
+                  and decision.get('input_sha256') == report['input_sha256']
+                  and decision.get('robust_side') == side
+                  and report.get('volatility', {}).get('formal_status') == 'COMPLETADA'
+                  and report.get('volatility', {}).get('conclusion') == 'CONTRADICCIÓN Y VOLATILIDAD REVISADAS')
+    state = 'COMPLETADA' if authorized else 'BLOQUEADA'
+    reason = ('La identidad corresponde a la dirección ciega registrada.' if authorized else
+              'Faltan cierres previos: ' + ', '.join(blockers) + '.' if blockers else
+              'Falta una dirección CIPI documentada y estable con correspondencia de identidad verificable.')
+    report['identity_release'] = {'status': state, 'reason': reason, 'steps': steps,
+                                  'blind_side': side if authorized else None,
+                                  'sensitive_withdrawals': sensitive}
+    tasks['T9_desbloqueo_identidad'] = state
+    selected_side = side if authorized else blind['sporting_side']
+    if selected_side is None:
+        cutoff = parse_dt(match['cutoff'])
+        seed = hashlib.sha256(cutoff.isoformat().encode()).digest()
+        selected_side = 'A' if seed[0] % 2 == 0 else 'B'
+    report['selection'] = names[selected_side]
+    report['selection_basis'] = ('CIPI' if authorized else 'DESEMPATE ADMINISTRATIVO'
+                                 if blind['administrative'] else 'INDICADOR PROVISIONAL')
+    if sensitive and not authorized:
+        report['confidence'] = 'MUY BAJA'
+    tasks['T10_veredicto'] = 'COMPLETADA'
+    return report
+
+
+def analyze(data: dict[str, Any]) -> dict[str, Any]:
+    return finalize_review(prepare_review(data))
 
 
 def append_log(report: dict[str, Any], path: Path) -> None:

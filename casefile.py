@@ -75,7 +75,7 @@ def workflow(report, payload):
         ('Evaluación ciega',[('T6_cipi_ciego','CIPI ciego',' '.join(report['casefile']['t6_blockers'])),
           ('T7_robustez','Robustez','Diagnóstico del indicador provisional. T7 formal requiere una dirección CIPI autorizada en T6.'),
           ('T8_contradicciones','Contradicción y volatilidad',report['volatility']['conclusion']+'. '+report['volatility']['strongest'])]),
-        ('Resolución',[('T9_desbloqueo_identidad','Contraste de identidad','La liberación formal depende del cerrojo de evidencia.'),
+        ('Resolución',[('T9_desbloqueo_identidad','Contraste de identidad',report['identity_release']['reason']),
           ('T10_veredicto','Veredicto',report['selection_type']+' · '+report['confidence']),
           ('T11_postpartido','Auditoría posterior','Requiere predicción congelada, resultado y contraste del mecanismo.')])]
     msi={'fase':report['osint']['items'][0]['text'],'formato':'BO3','consecuencia de perder':None,
@@ -87,7 +87,6 @@ def workflow(report, payload):
             differences=[r['kd_at_cutoff'][0]-r['kd_at_cutoff'][1] for r in sheet['observations'] if r['kd_at_cutoff']]
             pve[alias][sheet['alias']]={'series':len(differences),'minimum':min(differences,default=None),
                                          'maximum':max(differences,default=None)}
-    report['tasks']['T8_contradicciones']=report['volatility']['formal_status']
     return {'msi':msi,'pve_kd_range':pve,'adverse':worst,'objections':objections,'phases':[
         {'name':phase,'steps':[{'id':key.split('_')[0],'label':label,'state':report['tasks'][key],'reason':reason}
         for key,label,reason in steps]} for phase,steps in phases]}

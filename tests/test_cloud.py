@@ -66,6 +66,14 @@ class CloudTests(unittest.TestCase):
         self.assertEqual(report,frozen['report'])
         self.cookie=''
         self.assertTrue(self.request(route)[0].startswith('404'))
+    def test_analysis_saves_before_publication_and_ignores_client_gate(self):
+        p=self.payload(2)
+        p['cipi_decision']={'side':'B','robust_side':'B'}
+        _,r=self.request('/api/analyze','POST',p)
+        self.assertEqual(r['identity_release']['status'],'BLOQUEADA')
+        self.assertEqual(len(r['identity_release']['steps']),8)
+        self.assertEqual(self.request('/api/history/'+r['snapshot_id'])[1],r)
+
     def test_freeze_and_history(self):
         s,r=self.request('/api/freeze','POST',self.payload(2));self.assertTrue(s.startswith('201'))
         s,h=self.request('/api/history');self.assertEqual(h['items'][0]['id'],r['id'])
@@ -81,3 +89,38 @@ class CloudTests(unittest.TestCase):
         s,_=self.request('/api/analyze','POST',p);self.assertTrue(s.startswith('400'))
 
 if __name__=='__main__':unittest.main()
+
+class SequentialGateTests(unittest.TestCase):
+    def setUp(self):
+        from titan import prepare_review
+        self.report = prepare_review({'match': {'team_a': 'X', 'team_b': 'Y', 'cutoff': '2026-11-14T08:00:00Z'},
+            'teams': {'X': {}, 'Y': {'series': [{'date': '2026-11-13T08:00:00Z', 'format': 'BO3',
+                                                  'result': 'W', 'source': 'fixture'}]}}})
+
+    def test_no_early_winner_and_single_withdrawal(self):
+        from titan import finalize_review
+        self.assertNotIn('selection', self.report)
+        report = finalize_review(self.report)
+        self.assertEqual(report['selection'], 'Y')
+        self.assertEqual(report['identity_release']['status'], 'BLOQUEADA')
+        self.assertEqual(report['identity_release']['sensitive_withdrawals'][0]['margin'], 0)
+
+    def test_status_labels_alone_cannot_release(self):
+        from titan import finalize_review, TASKS
+        self.report['tasks'].update(dict.fromkeys(TASKS[:8], 'COMPLETADA'))
+        self.assertEqual(finalize_review(self.report)['identity_release']['status'], 'BLOQUEADA')
+
+    def test_checked_blind_identity_and_every_prior_step(self):
+        from titan import finalize_review, TASKS
+        self.report['tasks'].update(dict.fromkeys(TASKS[:8], 'COMPLETADA'))
+        self.report['cipi_decision'] = {'side':'A', 'robust_side':'A', 'aliases':{'A':'X','B':'Y'},
+                                        'input_sha256':self.report['input_sha256']}
+        self.report['volatility'] = {'formal_status':'COMPLETADA','conclusion':'CONTRADICCIÓN Y VOLATILIDAD REVISADAS'}
+        self.assertEqual(finalize_review(self.report)['selection_basis'], 'CIPI')
+        for step in TASKS[:8]:
+            with self.subTest(step=step):
+                self.report['tasks'][step] = 'PARCIAL'
+                self.assertEqual(finalize_review(self.report)['identity_release']['status'], 'BLOQUEADA')
+                self.report['tasks'][step] = 'COMPLETADA'
+        self.report['cipi_decision']['aliases'] = {'A':'Y','B':'X'}
+        self.assertEqual(finalize_review(self.report)['identity_release']['status'], 'BLOQUEADA')

@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from http.cookies import CookieError, SimpleCookie
 from wsgiref.simple_server import make_server
-from titan import analyze, parse_dt
+from titan import prepare_review, finalize_review, parse_dt
 from research import automatic_input
 from casefile import build_casefile, workflow
 from volatility import objections as assess_volatility
@@ -160,7 +160,8 @@ def app(environ, start_response):
                     return json_reply(start_response, '422 Unprocessable Entity', {
                         'error': 'Investigación pendiente. ' + (str(exc) if isinstance(exc, ValueError) else 'BLAST no entregó evidencia utilizable.')
                     })
-            report = analyze(payload)
+            report = prepare_review(payload)
+            report['tasks']['T2_ventana_15_dias'] = 'PARCIAL'
             if evidence:
                 diagnostics = audit_match(report, payload, evidence)
                 report['identity'] = build_identity(evidence, cutoff)
@@ -185,26 +186,35 @@ def app(environ, start_response):
                 else:
                     report['window']['prematch_player_counts'] = counts
 
+                counts = report['window'].get('prematch_player_counts', {})
+                full_sample = (len(counts) == 2 and all(len(players) == 5 and min(players.values()) >= 5
+                                                       for players in counts.values()))
+                report['tasks']['T2_ventana_15_dias'] = 'COMPLETADA' if full_sample else 'PARCIAL'
                 report['controls_R33_R34'] = {k:v['estado'] for k,v in diagnostics['controls'].items()}
                 report['casefile'] = build_casefile(report, evidence)
                 report['tasks']['T5_fichas_piso'] = report['casefile']['status']
-                # Formal T7 remains gated by T6; the proxy diagnostic is independently visible.
                 report['volatility'] = assess_volatility(report)
-                report['workflow'] = workflow(report,payload)
+                report['tasks']['T8_contradicciones'] = report['volatility']['formal_status']
                 report['methodology_notes'].append('Las fichas consultadas después del corte solo se usan para revisión retrospectiva.')
 
-            if path.endswith('analyze'):
-                return json_reply(start_response, '200 OK', report)
+            finalize_review(report)
+            if evidence:
+                report['workflow'] = workflow(report,payload)
             now = datetime.now(timezone.utc)
             if cutoff <= now:
+                if path.endswith('analyze'):
+                    return json_reply(start_response, '200 OK', report)
                 return json_reply(start_response, '409 Conflict',
                                   {'error':'El corte temporal debe ser futuro para congelar una predicción prospectiva.'})
             init_database()
             ident = secrets.token_hex(12)
+            report['snapshot_id'] = ident
             timestamp = now.isoformat()
             with sqlite3.connect(db_path(), timeout=10) as db:
                 db.execute('INSERT INTO browser_predictions (owner, id, created_utc, input_json, report_json) VALUES (?,?,?,?,?)',
                            (owner, ident, timestamp, json.dumps(payload,ensure_ascii=False),json.dumps(report,ensure_ascii=False)))
+            if path.endswith('analyze'):
+                return json_reply(start_response, '200 OK', report)
             return json_reply(start_response, '201 Created', {'id':ident,'created_utc':timestamp,'report':report})
         if method == 'GET' and re.fullmatch(r'/api/history/[0-9a-f]{24}',path):
             init_database()
