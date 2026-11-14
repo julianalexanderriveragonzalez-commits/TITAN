@@ -28,6 +28,25 @@ function renderReport(rep,id){
     if(trial)summary+='\nAl retirar '+(trial.group==='series'?'la serie':'el mecanismo')+' del '+trial.date.slice(0,10)+' (equipo '+trial.team+'), la ventaja del indicador '+(trial.margin===0?'desaparece.':'se invierte.');
     show(summary+'\n\n'+$('result').textContent);
   }
+  if(rep.verdict){
+    const v=rep.verdict;
+    const heading=document.createElement('h3');
+    heading.textContent='T10 · '+v.winner+' · '+v.type;
+    const details=document.createElement('p');
+    details.textContent=v.timing+' · Corte '+new Date(v.cutoff).toLocaleString('es-CO',{timeZone:'America/Bogota'})+
+      ' (Colombia) · Confianza '+v.confidence+'\n'+v.reason+
+      (v.objection?'\nObjeción al corte · '+v.objection:'');
+    const route=document.createElement('details');
+    const title=document.createElement('summary');
+    title.textContent='Recorrido de T1 a T10';
+    route.append(title);
+    for(const step of v.steps){
+      const line=document.createElement('div');
+      line.textContent=step.step+' · '+step.status;
+      route.append(line);
+    }
+    $('result').prepend(heading,details,route);
+  }
   if(rep.snapshot_id){
     const download=document.createElement('button');
     download.textContent='Descargar expediente congelado';

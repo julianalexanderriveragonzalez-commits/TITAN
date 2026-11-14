@@ -44,6 +44,29 @@ class CloudTests(unittest.TestCase):
         self.assertEqual(report['volatility']['tipping']['state'], 'INVERSIÓN')
         self.assertEqual(report['selection_type'], 'PROVISIONAL FORZADA')
 
+    def test_t1_through_t10_historical_verdict(self):
+        p=self.payload(0)
+        p.update(research_mode='automatic',teams={'Vitality':{},'MOUZ':{}})
+        p['match'].update(team_a='Vitality',team_b='MOUZ',cutoff='2026-11-13T03:00:00-05:00')
+        status,r=self.request('/api/analyze','POST',p)
+        self.assertTrue(status.startswith('200'))
+        v=r['verdict']
+        self.assertEqual([step['step'] for step in v['steps']], [f'T{i}' for i in range(1,11)])
+        self.assertEqual([step['status'] for step in v['steps']],
+                         ['PARCIAL']*5+['BLOQUEADA']*2+['COMPLETADA','BLOQUEADA','COMPLETADA'])
+        self.assertEqual((v['timing'],v['winner'],v['type']),('RETROSPECTIVO',r['selection'],'PROVISIONAL FORZADA'))
+        self.assertEqual(v['cutoff'],p['match']['cutoff'])
+        self.assertEqual(v['objection'],r['volatility']['strongest'])
+        self.assertNotIn('snapshot_id',r)
+
+    def test_t10_frozen_administrative_verdict(self):
+        _,result=self.request('/api/freeze','POST',self.payload(2))
+        r=self.request('/api/history/'+result['id'])[1]
+        self.assertEqual(r['verdict'],result['report']['verdict'])
+        self.assertEqual(r['verdict']['basis'],'DESEMPATE ADMINISTRATIVO')
+        self.assertEqual(r['verdict']['timing'],'PREPARTIDO')
+        self.assertEqual(r['verdict']['reason'],r['tie_break_explanation'])
+
     def test_open_panel(self):
         status, page = self.request('/')
         self.assertTrue(status.startswith('200'))

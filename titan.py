@@ -289,7 +289,29 @@ def finalize_review(report):
                                  if blind['administrative'] else 'INDICADOR PROVISIONAL')
     if sensitive and not authorized:
         report['confidence'] = 'MUY BAJA'
+    if authorized:
+        rationale = f'La dirección ciega {side} se conservó en T7 y su identidad quedó verificada en T9.'
+        report.update(selection_type='DIRECCIÓN CIPI AUTORIZADA',
+                      evidence_state='VENTAJA CONDICIONAL',
+                      confidence='SIN CALIBRACIÓN CIPI')
+    elif blind['administrative']:
+        rationale = report['tie_break_explanation']
+    else:
+        score = blind['scores']
+        rationale = f"Indicador ciego: A {score['A']:+.2f}, B {score['B']:+.2f}. {reason}"
     tasks['T10_veredicto'] = 'COMPLETADA'
+    issued = datetime.now(timezone.utc)
+    report['verdict'] = {
+        'winner': report['selection'], 'basis': report['selection_basis'],
+        'type': report['selection_type'], 'confidence': report['confidence'],
+        'evidence_state': report['evidence_state'], 'reason': rationale,
+        'cutoff': match['cutoff'], 'issued_at': issued.isoformat(),
+        'timing': 'PREPARTIDO' if issued < parse_dt(match['cutoff']) else 'RETROSPECTIVO',
+        'objection': report.get('volatility', {}).get('strongest'),
+        'tipping': report.get('volatility', {}).get('tipping'),
+        'critical_withdrawal': sensitive[0] if sensitive else None,
+        'steps': [{'step': key.split('_')[0], 'status': tasks[key]} for key in TASKS[:10]]
+    }
     return report
 
 
