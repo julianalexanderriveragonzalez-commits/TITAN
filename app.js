@@ -321,6 +321,8 @@ function renderVolatility(v){
     add('p','Escenario hipotético mínimo: invertir '+t.changes.length+' observaciones cambia el lado favorecido. Margen resultante: '+t.margin+'.');
     for(const r of t.changes)add('p',(r.shared?'Serie compartida':'Equipo '+r.team)+' · '+(r.group==='series'?'serie':'mecanismo')+' '+r.index+' · '+r.date.slice(0,10));
   }else{add('p','Escenario del indicador: '+t.state+'.');}
-  add('p','T8 formal: '+v.formal_status+' · depende de T7.');
+  add('p','Diagnóstico T8: '+(v.diagnostic_status||'disponible')+' · Revisión formal: '+v.formal_status);
+  for(const reason of v.gate_reasons||[])add('p',reason);
+  if(v.conclusion)add('p',v.conclusion);
   $('result').append(box);
 }

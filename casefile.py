@@ -74,7 +74,7 @@ def workflow(report, payload):
           ('T5_fichas_piso','Expediente y transferibilidad',' · '.join(evidence_gap))]),
         ('Evaluación ciega',[('T6_cipi_ciego','CIPI ciego',' '.join(report['casefile']['t6_blockers'])),
           ('T7_robustez','Robustez','Diagnóstico del indicador provisional. T7 formal requiere una dirección CIPI autorizada en T6.'),
-          ('T8_contradicciones','Contradicción y volatilidad',report['volatility']['strongest'])]),
+          ('T8_contradicciones','Contradicción y volatilidad',report['volatility']['conclusion']+'. '+report['volatility']['strongest'])]),
         ('Resolución',[('T9_desbloqueo_identidad','Contraste de identidad','La liberación formal depende del cerrojo de evidencia.'),
           ('T10_veredicto','Veredicto',report['selection_type']+' · '+report['confidence']),
           ('T11_postpartido','Auditoría posterior','Requiere predicción congelada, resultado y contraste del mecanismo.')])]

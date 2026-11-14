@@ -31,6 +31,19 @@ class CloudTests(unittest.TestCase):
     def payload(self,days):
         cutoff=(datetime.now(timezone.utc)+timedelta(days=days)).isoformat()
         return {'match':{'id':'test','team_a':'A','team_b':'B','cutoff':cutoff},'teams':{'A':{'series':[],'mechanisms':[]},'B':{'series':[],'mechanisms':[]}}}
+    def test_historical_t8_closes_with_negative_conclusion(self):
+        payload = self.payload(0)
+        payload.update(research_mode='automatic', teams={'Vitality': {}, 'MOUZ': {}})
+        payload['match'].update(team_a='Vitality', team_b='MOUZ', cutoff='2026-11-13T03:00:00-05:00')
+        status, report = self.request('/api/analyze', 'POST', payload)
+        self.assertTrue(status.startswith('200'))
+        self.assertEqual(report['volatility']['conclusion'], 'CERRADA SIN DIRECCIÓN CIPI AUTORIZADA')
+        self.assertEqual(report['tasks']['T8_contradicciones'], 'COMPLETADA')
+        for step in ('T6_cipi_ciego', 'T7_robustez', 'T9_desbloqueo_identidad'):
+            self.assertEqual(report['tasks'][step], 'BLOQUEADA')
+        self.assertEqual(report['volatility']['tipping']['state'], 'INVERSIÓN')
+        self.assertEqual(report['selection_type'], 'PROVISIONAL FORZADA')
+
     def test_open_panel(self):
         status, page = self.request('/')
         self.assertTrue(status.startswith('200'))
