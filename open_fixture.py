@@ -10,6 +10,8 @@ from urllib.request import Request, urlopen
 
 from lxml import html
 from titan import parse_dt
+import second_source
+from source_network import result_index, fetch as fetch_index
 
 HOST = 'https://www.hltv.org'
 PATH = r'/matches/\d{5,10}/[a-z0-9-]+'
@@ -52,7 +54,10 @@ def sheet(doc, path, checked):
             rosters[team[0]] = box.xpath('.//td//div[@class="text-ellipsis"]/text()')
     return dict(names=names, source=HOST+path, tournament=event[0], format='BO'+fmt[1],
                 kickoff=datetime.fromtimestamp(int(timestamp[0])/1000,timezone.utc).isoformat(),
-                checked=checked, rosters=rosters, history=history)
+                checked=checked, rosters=rosters, history=history, team_ids={
+                    a.text_content().strip():a.get('href').split('/')[2]
+                    for a in doc.xpath('//*[@class="lineup standard-box"]//a[starts-with(@href,"/team/")]')
+                    if re.fullmatch(r'/team/\d+/[a-z0-9-]+',a.get('href',''))})
 
 
 def lookup(match):
@@ -94,7 +99,13 @@ def histories(fixture, match):
     names = [match['team_a'],match['team_b']]
     teams = {n:{'series':[],'mechanisms':[]} for n in names}
     cutoff = parse_dt(match['cutoff'])
-    if datetime.now(timezone.utc)>=cutoff:
+    archive = json.loads(Path(__file__).with_name('nodwin_review.json').read_text())
+    archived = (fixture['source']==archive['fixture'] and cutoff==parse_dt(archive['cutoff'])
+                and {key(n) for n in names}=={key(n) for n in archive['teams']}
+                and datetime.now(timezone.utc)>=parse_dt(archive['checked']))
+    if archived:
+        for name in names:
+            teams[name]['series'] = archive['teams'][next(k for k in archive['teams'] if key(k)==key(name))]
         return teams
     bucket = int(time()//300)
     def previous(item):
@@ -107,9 +118,17 @@ def histories(fixture, match):
             start=parse_dt(record['kickoff'])
             scores=[doc.xpath('//*[contains(@class,"team%d-gradient")]//*[@class="won" or @class="lost"]/text()'%(i+1)) for i in range(2)]
             if (not all(scores) or sorted(int(s[0]) for s in scores) not in ([0,2],[1,2])
-                    or record['format']!='BO3' or not cutoff-timedelta(days=15)<=start<parse_dt(record['checked'])<cutoff):
+                    or record['format']!='BO3' or not cutoff-timedelta(days=15)<=start<min(cutoff,parse_dt(record['checked']))
+                    or (parse_dt(record['checked'])>=cutoff and start.date()>=cutoff.date())):
                 return
-            return name,dict(id=path.split('/')[2],date=start.isoformat(),format='BO3',
+            maps=[]
+            for box in doc.find_class('mapholder'):
+                labels=box.find_class('mapname')
+                results=box.find_class('results-team-score')
+                if labels and len(results)==2 and all(v.text_content().strip().isdigit() for v in results):
+                    pair=[int(v.text_content().strip()) for v in results]
+                    maps.append({'map':labels[0].text_content().strip().lower(),'score':pair if idx==0 else pair[::-1]})
+            return name,dict(checked_at=record['checked'],maps=maps,id=path.split('/')[2],date=start.isoformat(),format='BO3',
                              result='W' if int(scores[idx][0])==2 else 'L',source=record['source'],opponent=sides[1-idx])
         except ERRORS:
             return
@@ -118,4 +137,90 @@ def histories(fixture, match):
         for row in workers.map(previous,items):
             if row:
                 teams[row[0]]['series'].append(row[1])
+    def check_secondary(name):
+        rows = teams[name]['series']
+        slug = re.sub(r'[^a-z0-9]+','-',name.casefold()).strip('-')
+        ident=next((v for k,v in fixture.get('team_ids',{}).items() if key(k)==key(name)),None)
+        if len(rows)<5 and ident and str(ident).isdigit():
+            try:
+                data,checked=fetch_index(HOST+'/results?team='+str(ident),bucket)
+                for item in result_index(data):
+                    day=parse_dt(item['date']+'T00:00:00+00:00')
+                    # The index supplies only a UTC day. Admit complete interior days.
+                    if not (cutoff-timedelta(days=15)).date()<day.date()<min(cutoff,parse_dt(checked)).date():
+                        continue
+                    if second_source.norm(name) not in item['teams'] or item['url']==fixture['source']:
+                        continue
+                    if any(r['source']==item['url'] for r in rows):
+                        continue
+                    side=item['teams'].index(second_source.norm(name))
+                    rows.append(dict(id=item['url'].split('/')[-2],date=day.isoformat(),date_precision='day',
+                                     checked_at=checked,format='BO3',source=item['url'],opponent=item['teams'][1-side],
+                                     result='W' if item['scores'][side]==2 else 'L'))
+                    if len(rows)>=5:
+                        break
+            except ERRORS:
+                pass
+        if not slug:
+            return
+        try:
+            index = html.fromstring(second_source.fetch('/teams/'+second_source.ALIASES.get(slug,slug)+'/matches',bucket))
+            paths = list(dict.fromkeys(index.xpath('//a[starts-with(@href,"/matches/")]/@href')))
+        except ERRORS:
+            return
+        def check(path):
+            try:
+                body=second_source.fetch(path,bucket)
+                doc=html.fromstring(body)
+                events=json.loads(doc.xpath('//script[@type="application/ld+json"]/text()')[0])
+                event=next(v for v in events if isinstance(v,dict) and v.get('@type')=='SportsEvent')
+                sides=event['name'].split(' vs ')
+                if len(sides)!=2 or event['url']!=second_source.HOST+path:
+                    return
+                side=[second_source.norm(v) for v in sides].index(second_source.norm(name))
+                start=parse_dt(event['startDate'])
+                end=parse_dt(event['endDate']) if event.get('endDate') else None
+                checked=datetime.now(timezone.utc)
+                if not cutoff-timedelta(days=15)<=start<min(checked,cutoff):
+                    return
+                if checked>=cutoff and (not end or not start<=end<cutoff):
+                    return
+                maps=[]
+                for el in doc.find_class('c-match-score-map'):
+                    label=el.getparent().find('a')
+                    pair=list(map(int,re.findall(r'\d+',el.text_content())))
+                    if label is not None and len(pair)==2 and max(pair)>=13 and pair[0]!=pair[1]:
+                        maps.append(dict(map=label.text_content().strip().lower().replace('dust ii','dust2'),
+                                         score=pair if side==0 else pair[::-1]))
+                wins=sum(m['score'][0]>m['score'][1] for m in maps)
+                score=[wins,len(maps)-wins]
+                # Two played maps can also be an unfinished BO5.
+                context=' '.join(str(event.get(k,'')) for k in ('name','description'))
+                context+=' '+' '.join(e.text_content() for e in doc.xpath('//*[contains(@class,"match-format") or contains(@class,"best-of")]'))
+                if sorted(score) not in ([0,2],[1,2]) or not re.search(r'\b(?:bo\s*3|best.of.(?:3|three))\b',context,re.I):
+                    return
+                return dict(id=path,date=start.isoformat(),checked_at=checked.isoformat(),format='BO3',
+                            result='W' if wins==2 else 'L',source=event['url'],opponent=sides[1-side],maps=maps)
+            except (OSError,ValueError,KeyError,IndexError,TypeError,StopIteration):
+                return
+        dates=[(cutoff-timedelta(days=i)).strftime('%d-%m-%Y') for i in range(16)]
+        eligible=[p for p in paths if any(p.endswith('-'+d) for d in dates) and re.fullmatch(r'/matches/[\w-]+',p)]
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            for row in pool.map(check,eligible[:8]):
+                if not row:
+                    continue
+                peers=[r for r in rows if key(r['opponent'])==key(row['opponent']) and parse_dt(r['date']).date()==parse_dt(row['date']).date()]
+                if not peers:
+                    rows.append(row)
+                elif len(peers)==1:
+                    peer=peers[0]
+                    if peer['source']==row['source']:
+                        continue
+                    if peer['result']!=row['result'] or (peer.get('maps') and peer['maps']!=row['maps']):
+                        peer['conflict']=True
+                    else:
+                        peer['secondary_source']=row['source']
+        teams[name]['series']=sorted((r for r in rows if not r.get('conflict')),key=lambda r:r['date'],reverse=True)[:5]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(check_secondary,names))
     return teams

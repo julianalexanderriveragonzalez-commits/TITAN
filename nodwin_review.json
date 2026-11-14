@@ -1,0 +1,109 @@
+{
+  "fixture": "https://www.hltv.org/matches/2400346/33-vs-genone-nodwin-clutch-series-14",
+  "cutoff": "2026-11-14T18:30:00+00:00",
+  "checked": "2026-11-14T21:23:04.354456+00:00",
+  "teams": {
+    "33": [
+      {
+        "id": "2400517",
+        "format": "BO3",
+        "result": "W",
+        "source": "https://www.hltv.org/matches/2400517/state-vs-33-pgl-cluj-napoca-2027-open-qualifier-2",
+        "opponent": "STATE",
+        "date": "2026-11-13T18:45:00+00:00",
+        "checked_at": "2026-11-14T21:23:04.354456+00:00"
+      },
+      {
+        "id": "2400516",
+        "format": "BO3",
+        "result": "W",
+        "source": "https://www.hltv.org/matches/2400516/luntiki-vs-33-pgl-cluj-napoca-2027-open-qualifier-2",
+        "opponent": "LUNTIKI",
+        "date": "2026-11-13T15:00:00+00:00",
+        "checked_at": "2026-11-14T21:23:04.354456+00:00",
+        "secondary_source": "https://www.glhf.net/news/cs2-esports-results-2026-11-13/"
+      },
+      {
+        "id": "2400339",
+        "format": "BO3",
+        "result": "L",
+        "source": "https://www.hltv.org/matches/2400339/brute-vs-33-nodwin-clutch-series-14",
+        "opponent": "BRUTE",
+        "date": "2026-11-13T09:00:00+00:00",
+        "checked_at": "2026-11-14T21:23:04.354456+00:00",
+        "secondary_source": "https://bo3.gg/tournaments/nodwin-clutch-series-14"
+      },
+      {
+        "id": "2400514",
+        "format": "BO3",
+        "result": "W",
+        "source": "https://www.hltv.org/matches/2400514/butterfly-vs-33-pgl-cluj-napoca-2027-open-qualifier-2",
+        "opponent": "Butterfly",
+        "date": "2026-11-12T20:40:00+00:00",
+        "checked_at": "2026-11-14T21:23:04.354456+00:00",
+        "secondary_source": "https://espor.live/en/tournament/348"
+      },
+      {
+        "id": "2400463",
+        "format": "BO3",
+        "result": "L",
+        "source": "https://www.hltv.org/matches/2400463/33-vs-bbl-pgl-cluj-napoca-2027-open-qualifier-1",
+        "opponent": "BBL",
+        "date": "2026-11-11T15:00:00+00:00",
+        "checked_at": "2026-11-14T21:23:04.354456+00:00"
+      }
+    ],
+    "GenOne": [
+      {
+        "id": "2400395",
+        "format": "BO3",
+        "result": "L",
+        "source": "https://www.hltv.org/matches/2400395/genone-vs-balkan-outlaws-european-pro-league-series-10",
+        "opponent": "Balkan Outlaws",
+        "date": "2026-11-14T09:00:00+00:00",
+        "checked_at": "2026-11-14T21:23:04.354456+00:00",
+        "secondary_source": "https://www.strafe.com/match/genone-vs-balkan-outlaws-round-of-16-2026-european-pro-league-series-10-2b4cbc/"
+      },
+      {
+        "id": "2400340",
+        "format": "BO3",
+        "result": "L",
+        "source": "https://www.hltv.org/matches/2400340/black-phoenix-vs-genone-nodwin-clutch-series-14",
+        "opponent": "Black Phoenix",
+        "date": "2026-11-13T12:00:00+00:00",
+        "checked_at": "2026-11-14T21:23:04.354456+00:00",
+        "secondary_source": "https://cselo.net/teams/genone-34"
+      },
+      {
+        "id": "2400150",
+        "format": "BO3",
+        "result": "L",
+        "source": "https://www.hltv.org/matches/2400150/genone-vs-leo-cct-2026-europe-series-13",
+        "opponent": "Leo",
+        "date": "2026-11-12T12:00:00+00:00",
+        "checked_at": "2026-11-14T21:23:04.354456+00:00",
+        "secondary_source": "https://scangoal.com/cs2/match/genone-vs-balkan-outlaws-133932?sgc=1"
+      },
+      {
+        "id": "2400147",
+        "format": "BO3",
+        "result": "L",
+        "source": "https://www.hltv.org/matches/2400147/genone-vs-inner-circle-academy-cct-2026-europe-series-13",
+        "opponent": "Inner Circle Academy",
+        "date": "2026-11-11T12:00:00+00:00",
+        "checked_at": "2026-11-14T21:23:04.354456+00:00",
+        "secondary_source": "https://scangoal.com/cs2/match/genone-vs-balkan-outlaws-133932?sgc=1"
+      },
+      {
+        "id": "2400330",
+        "format": "BO3",
+        "result": "L",
+        "source": "https://www.hltv.org/matches/2400330/nt-vs-genone-nodwin-clutch-series-14",
+        "opponent": "NT",
+        "date": "2026-11-10T18:15:00+00:00",
+        "checked_at": "2026-11-14T21:23:04.354456+00:00",
+        "secondary_source": "https://cselo.net/teams/genone-34"
+      }
+    ]
+  }
+}

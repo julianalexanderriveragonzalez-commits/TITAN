@@ -34,3 +34,15 @@ class FixtureTests(unittest.TestCase):
         with patch('open_fixture.read',side_effect=[calendar,page]):
             result=fixtures.lookup(dict(self.match,team_a='Beta',team_b='Alpha'))
         self.assertEqual((result['tournament'],result['format']),('Regional','BO5'))
+
+    def test_archived_history_replays_without_target_score(self):
+        teams=fixtures.histories(self.saved,self.match)
+        self.assertEqual(set(teams),{'33','Genone'})
+        for team in teams.values():
+            self.assertEqual(len(team['series']),5)
+            for row in team['series']:
+                self.assertLess(fixtures.parse_dt(row['date']), fixtures.parse_dt(self.match['cutoff']))
+                self.assertGreater(fixtures.parse_dt(row['checked_at']),fixtures.parse_dt(self.match['cutoff']))
+                self.assertNotEqual(row['source'], self.saved['source'])
+        self.assertEqual(sum(r['result']=='W' for r in teams['33']['series']),3)
+        self.assertFalse(any(r['result']=='W' for r in teams['Genone']['series']))
