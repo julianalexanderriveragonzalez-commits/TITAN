@@ -3,7 +3,7 @@ const $ = id => document.getElementById(id);
 function data() {
   const a=$('a').value.trim(),b=$('b').value.trim(),d=$('date').value;
   if(!a || !b || a===b || !d) throw Error('Introduce dos equipos distintos y la fecha del encuentro.');
-  return {postmatch_hypothesis:$('comeback').checked?'REMONTAR_TRAS_PERDER_MAPA_1':null,research_mode:$('manual').checked?'manual':'automatic',match:{id:crypto.randomUUID(),team_a:a,team_b:b,cutoff:d+':00-05:00'},teams:{[a]:$('manual').checked?JSON.parse($('sa').value):{},[b]:$('manual').checked?JSON.parse($('sb').value):{}}};
+  return {postmatch_hypothesis:$('comeback').checked?'REMONTAR_TRAS_PERDER_MAPA_1':null,research_mode:$('manual').checked?'manual':'automatic',match:{source_url:$('fixture').value.trim(),id:crypto.randomUUID(),team_a:a,team_b:b,cutoff:d+':00-05:00'},teams:{[a]:$('manual').checked?JSON.parse($('sa').value):{},[b]:$('manual').checked?JSON.parse($('sb').value):{}}};
 }
 async function api(url,method='GET',body){
   const r=await fetch(url,{method,headers:method==='POST'?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,cache:'no-store'});
@@ -12,15 +12,28 @@ async function api(url,method='GET',body){
 function show(text){$('result').textContent=text;}
 async function action(freeze){
  try{
-  show($('manual').checked?'Analizando datos manuales…':'Buscando el encuentro y comprobando mapas y jugadores en BLAST…');
+  show($('manual').checked?'Analizando datos manuales…':'Buscando el encuentro y revisando las fuentes disponibles…');
   const p=data(); const r=await api(freeze?'/api/freeze':'/api/analyze','POST',p);
   const rep=freeze?r.report:r;
+  if(rep.pending){show(rep.error);return;}
   renderReport(rep,rep.snapshot_id || (freeze?r.id:null));
   if(freeze || rep.snapshot_id) await history();
  }catch(e){show('Error: '+e.message)}
 }
 function renderReport(rep,id){
   show((id?'Predicción congelada · ID '+id+'\n':'')+(rep.selection_basis==='CIPI'?'Dirección CIPI: ':rep.tie_break_explanation?'Desempate administrativo: ':'Selección provisional: ')+rep.selection+'\nTipo: '+rep.selection_type+'\nConfianza: '+rep.confidence+'\nEstado: '+rep.evidence_state+'\n\nCarencias:\n'+Object.entries(rep.missing_evidence).map(([team,gaps])=>team+': '+gaps.join('; ')).join('\n')+'\n\nControles pendientes: '+Object.values(rep.controls_R33_R34).filter(v=>v!=='COMPLETADA').length+'\n\n'+(rep.tie_break_explanation||''));
+  let fixturePanel;
+  if(rep.external_fixture){
+    const f=rep.external_fixture;
+    show(f.tournament+' · '+f.format+' · HLTV\n'+Object.entries(rep.external_series).map(([n,rows])=>n+' · '+rows.length+' antecedentes BO3 verificados').join('\n')+'\n\n'+$('result').textContent);
+    const panel=document.createElement('details'),title=document.createElement('summary');
+    title.textContent='Ficha del encuentro y antecedentes';panel.append(title);
+    const link=document.createElement('a');link.href=f.source;link.textContent='Ver partido en HLTV';panel.append(link);
+    for(const [name,rows] of Object.entries(rep.external_series)){
+      for(const row of rows){const line=document.createElement('p'),a=document.createElement('a');a.href=row.source;a.textContent=name+' vs. '+row.opponent+' · '+row.date.slice(0,10);line.append(a);panel.append(line);}
+    }
+    fixturePanel=panel;
+  }
   if(rep.identity_release){
     const gate=rep.identity_release;
     let summary='T9 · '+gate.status+' · '+gate.reason+'\nElección por '+rep.selection_basis+'.';
@@ -28,6 +41,7 @@ function renderReport(rep,id){
     if(trial)summary+='\nAl retirar '+(trial.group==='series'?'la serie':'el mecanismo')+' del '+trial.date.slice(0,10)+' (equipo '+trial.team+'), la ventaja del indicador '+(trial.margin===0?'desaparece.':'se invierte.');
     show(summary+'\n\n'+$('result').textContent);
   }
+  if(fixturePanel)$('result').append(fixturePanel);
   if(rep.engines){
     const panel=document.createElement('details'),title=document.createElement('summary');
     title.textContent='Verificación de los seis motores';panel.append(title);

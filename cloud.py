@@ -19,6 +19,7 @@ from engines import chain, review as review_engines
 from competitive_review import evaluate as compare_portfolios
 from titan import TASKS
 from postmatch import official_result, review as postmatch_review
+import open_fixture
 from research import automatic_input
 from casefile import build_casefile, workflow
 from volatility import objections as assess_volatility
@@ -159,13 +160,26 @@ def app(environ, start_response):
             payload = process_json(environ)
             cutoff = validate_input(payload)
             evidence = None
+            external = None
             if payload.get('research_mode') == 'automatic':
-                try:
-                    payload['teams'], evidence = automatic_input(payload['match'])
-                except (OSError, ValueError, KeyError, TypeError, IndexError) as exc:
-                    return json_reply(start_response, '422 Unprocessable Entity', {
-                        'error': 'Investigación pendiente. ' + (str(exc) if isinstance(exc, ValueError) else 'BLAST no entregó evidencia utilizable.')
-                    })
+                match = payload['match']
+                if not match.get('source_url'):
+                    try:
+                        payload['teams'], evidence = automatic_input(match)
+                    except (OSError, ValueError, KeyError, TypeError, IndexError):
+                        pass
+                if evidence is None:
+                    external = open_fixture.lookup(match)
+                    if not external:
+                        reason = 'Partido pendiente de identificación. Revisa ambos nombres y la hora de Colombia, o pega la ficha exacta de HLTV. También puedes aportar evidencia en la entrada manual.'
+                    elif external['format'] != 'BO3':
+                        reason = 'Encuentro localizado en '+external['tournament']+'. El formato '+external['format']+' requiere una evaluación específica. El modelo actual evalúa BO3.'
+                    else:
+                        reason = None
+                    if reason:
+                        return json_reply(start_response, '409 Conflict' if path.endswith('freeze') else '200 OK',
+                                          {'pending':True,'error':reason,'external_fixture':external})
+                    payload['teams'] = open_fixture.histories(external,match)
             report = prepare_review(payload)
             report['tasks']['T2_ventana_15_dias'] = 'PARCIAL'
             if evidence:
@@ -236,6 +250,10 @@ def app(environ, start_response):
                                         'reconstructed':bool(evidence.get('reconstructed')),
                                         'series':{n:[{'date':s['date'],'opponent':s['opponent'],'result':s['result'],'source':s['source']}
                                                      for s in t['series']] for n,t in evidence['teams'].items()}}
+            if external:
+                report['external_fixture'] = external
+                report['tasks']['T1_anonimizacion'] = 'PARCIAL'
+                report['external_series'] = {name:team['series'] for name,team in payload['teams'].items()}
             if payload.get('postmatch_hypothesis') == 'REMONTAR_TRAS_PERDER_MAPA_1':
                 report['postmatch_hypothesis'] = payload['postmatch_hypothesis']
             finalize_review(report)

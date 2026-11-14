@@ -1,0 +1,43 @@
+{
+  "names": [
+    "33",
+    "GenOne"
+  ],
+  "source": "https://www.hltv.org/matches/2400346/33-vs-genone-nodwin-clutch-series-14",
+  "tournament": "NODWIN Clutch Series 14",
+  "format": "BO3",
+  "kickoff": "2026-11-14T18:30:00+00:00",
+  "checked": "2026-11-14T18:08:48.881382+00:00",
+  "rosters": {
+    "33": [
+      "shg",
+      "Raijin",
+      "bluewh1te",
+      "executor",
+      "z1Nny"
+    ],
+    "GenOne": [
+      "SIXER",
+      "Djoko",
+      "Brooxsy",
+      "Keoz",
+      "bL4SEZ"
+    ]
+  },
+  "history": {
+    "33": [
+      "/matches/2400517/state-vs-33-pgl-cluj-napoca-2027-open-qualifier-2",
+      "/matches/2400516/luntiki-vs-33-pgl-cluj-napoca-2027-open-qualifier-2",
+      "/matches/2400339/brute-vs-33-nodwin-clutch-series-14",
+      "/matches/2400514/butterfly-vs-33-pgl-cluj-napoca-2027-open-qualifier-2",
+      "/matches/2400463/33-vs-bbl-pgl-cluj-napoca-2027-open-qualifier-1"
+    ],
+    "GenOne": [
+      "/matches/2400395/genone-vs-balkan-outlaws-european-pro-league-series-10",
+      "/matches/2400340/black-phoenix-vs-genone-nodwin-clutch-series-14",
+      "/matches/2400150/genone-vs-leo-cct-2026-europe-series-13",
+      "/matches/2400147/genone-vs-inner-circle-academy-cct-2026-europe-series-13",
+      "/matches/2400330/nt-vs-genone-nodwin-clutch-series-14"
+    ]
+  }
+}
