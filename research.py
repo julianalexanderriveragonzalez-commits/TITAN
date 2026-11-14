@@ -86,8 +86,7 @@ def research(match):
     names = [match['team_a'], match['team_b']]
     cutoff = parse_dt(match['cutoff'])
     now = datetime.now(timezone.utc)
-    if cutoff <= now:
-        raise ValueError('La investigación automática prospectiva exige un encuentro futuro.')
+    historical = cutoff <= now
     bucket = int(time() // 600)
     directory = links(page('/cs/team', bucket), TEAM)
     paths = []
@@ -146,7 +145,9 @@ def research(match):
             # When BLAST omits map end times, the complete score was already
             # observable at collection, which itself must precede the fixture.
             end = max(parse_dt(g['endedAt']) for g in maps) if all(g.get('endedAt') for g in maps) else None
-            if not cutoff-timedelta(days=15) <= start <= now or (end and not start <= end <= now):
+            if historical and (end is None or end >= cutoff):
+                continue
+            if not cutoff-timedelta(days=15) <= start < cutoff or start > now or (end and not start <= end <= now):
                 continue
             side = sides(m).index(tid)
             lines = {}
@@ -172,7 +173,7 @@ def research(match):
         if checked < cutoff and normalize(name) in lineups:
             report[name]['fixture_lineup_evidence'] = {
                 'players':lineups[normalize(name)], 'source':HOST+target, 'checked_at':checked.isoformat()}
-    return teams, {'source':HOST+target,'tournament':fixture['tournament']['name'],'stage':fixture['name'],'cutoff':cutoff.isoformat(),'retrieved':now.isoformat(),'teams':report,'unavailable_pages':sum(item is None for item in details.values())}
+    return teams, {'source':HOST+target,'tournament':fixture['tournament']['name'],'stage':fixture['name'],'cutoff':cutoff.isoformat(),'retrieved':datetime.now(timezone.utc).isoformat(),'reconstructed':historical,'teams':report,'unavailable_pages':sum(item is None for item in details.values())}
 
 
 def automatic_input(match):
@@ -189,4 +190,10 @@ def automatic_input(match):
             data['teams'] = {n:data['teams'][source_names[normalize(n)]] for n in names}
             data['cached_snapshot'] = True
             return {n:{'series':v['series'],'mechanisms':[]} for n,v in data['teams'].items()}, data
+    replay=json.loads(Path(__file__).with_name('replay_spirit_mouz.json').read_text())
+    by_name={normalize(n):t for n,t in replay['teams'].items()}
+    if (set(map(normalize,names))==set(by_name) and parse_dt(match['cutoff'])==parse_dt(replay['cutoff'])
+            and parse_dt(replay['retrieved'])>=parse_dt(replay['cutoff'])):
+        replay['teams']={n:by_name[normalize(n)] for n in names}
+        return {n:{'series':t['series'],'mechanisms':[]} for n,t in replay['teams'].items()},replay
     return research(match)

@@ -45,6 +45,28 @@ function renderReport(rep,id){
       line.textContent=step.step+' · '+step.status+(step.blocked_by?' · requiere cerrar '+step.blocked_by:'');
       route.append(line);
     }
+    if(v.pillars){
+      const audit=document.createElement('details'), label=document.createElement('summary');
+      label.textContent='Ocho pilares · evidencia al corte';audit.append(label);
+      if(rep.collection){
+        const meta=document.createElement('p');
+        meta.textContent='Consulta primaria: '+rep.collection.checked+' · Páginas sin respuesta: '+(rep.collection.unavailable_pages??'desconocido');
+        audit.append(meta);
+      }
+      for(const p of v.pillars){
+        const row=document.createElement('details'),title=document.createElement('summary');
+        title.textContent=p.id+' · '+p.name+' · '+p.status;row.append(title);
+        for(const value of [p.observation,p.gap,p.impact]){
+          const line=document.createElement('p');line.textContent=value;row.append(line);
+        }
+        for(const s of p.sources){
+          const a=document.createElement('a');a.href=s.url;a.textContent=new URL(s.url).hostname+' · '+s.scope+' · '+s.checked;
+          row.append(a,document.createElement('br'));
+        }
+        audit.append(row);
+      }
+      $('result').prepend(audit);
+    }
     $('result').prepend(heading,details,route);
   }
   if(rep.postmatch){

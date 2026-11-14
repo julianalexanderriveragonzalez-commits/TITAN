@@ -88,6 +88,25 @@ class CloudTests(unittest.TestCase):
             self.assertEqual(reopened,r['report'])
             self.assertTrue(self.request(route,'POST',{'winner':'B'})[0].startswith('409'))
 
+    def test_historical_pillars_use_separate_cutoffs(self):
+        p=self.payload(0)
+        p.update(research_mode='automatic',teams={'Vitality':{},'MOUZ':{}})
+        p['match'].update(team_a='Vitality',team_b='MOUZ',cutoff='2026-11-13T03:00:00-05:00')
+        _,r=self.request('/api/analyze','POST',p)
+        pillars=r['verdict']['pillars']
+        self.assertEqual([x['id'] for x in pillars],list(range(1,9)))
+        self.assertEqual({s['scope'] for s in pillars[1]['sources']},{'PREPARTIDO','POSTERIOR'})
+        self.assertIn('20/50',pillars[0]['observation'])
+        self.assertEqual(pillars[6]['status'],'PENDIENTE')
+        self.assertIn('+0.20',pillars[4]['impact'])
+        self.assertIsNone(r['postmatch']['correct'])
+
+    def test_pillars_preserved_in_snapshot(self):
+        _,r=self.request('/api/freeze','POST',self.payload(1))
+        stored=self.request('/api/history/'+r['id'])[1]
+        self.assertEqual(stored['verdict']['pillars'],r['report']['verdict']['pillars'])
+        self.assertEqual(stored['verdict']['pillars'][7]['status'],'PENDIENTE')
+
     def test_open_panel(self):
         status, page = self.request('/')
         self.assertTrue(status.startswith('200'))

@@ -191,6 +191,8 @@ def app(environ, start_response):
                 else:
                     report['window']['prematch_player_counts'] = counts
 
+                if parse_dt(evidence['retrieved']) >= cutoff:
+                    report['window']['prematch_player_counts'] = {}
                 counts = report['window'].get('prematch_player_counts', {})
                 full_sample = (len(counts) == 2 and all(len(players) == 5 and min(players.values()) >= 5
                                                        for players in counts.values()))
@@ -220,6 +222,10 @@ def app(environ, start_response):
 
             if evidence:
                 report['fixture_source'] = evidence['source']
+                report['collection'] = {'checked':evidence['retrieved'],'unavailable_pages':evidence.get('unavailable_pages'),
+                                        'reconstructed':bool(evidence.get('reconstructed')),
+                                        'series':{n:[{'date':s['date'],'opponent':s['opponent'],'result':s['result'],'source':s['source']}
+                                                     for s in t['series']] for n,t in evidence['teams'].items()}}
             if payload.get('postmatch_hypothesis') == 'REMONTAR_TRAS_PERDER_MAPA_1':
                 report['postmatch_hypothesis'] = payload['postmatch_hypothesis']
             finalize_review(report)

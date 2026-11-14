@@ -4,6 +4,7 @@ This is a research prototype, not a verified predictor of esports outcomes.
 It never fabricates data and reports missing evidence explicitly.
 """
 from __future__ import annotations
+from pillars import audit_pillars
 import argparse
 import hashlib
 import json
@@ -333,6 +334,7 @@ def finalize_review(report):
         'critical_withdrawal': sensitive[0] if sensitive else None,
         'steps': report['sequence'][:10]
     }
+    report['verdict']['pillars'] = audit_pillars(report)
     return report
 
 
