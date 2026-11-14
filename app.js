@@ -113,7 +113,7 @@ function renderAudit(audit){
       const el=document.createElement('div');el.textContent=nick+' · '+rows.length+'/5';d.append(el);
       for(const r of rows){const a=document.createElement('span');a.textContent=r.date.slice(0,10)+' vs. '+r.opponent+' · '+r.kills+'–'+r.deaths+' K-D · '+r.adr+' ADR';d.append(a,document.createElement('br'));}
     }
-    const floor=document.createElement('p');floor.textContent=team.floor_ratings?'Ratings de serie: '+team.floor_ratings+' · Alertas <0,80: '+(team.floor_alerts.map(x=>x.player+' '+x.rating).join(', ')||'ninguna'):'Piso colectivo: faltan ratings comparables de serie.';d.append(floor);
+    const floor=document.createElement('p');floor.textContent=team.floor_ratings?'Ratings de serie: '+team.floor_ratings+' · Alertas <0,80: '+(team.floor_alerts.map(x=>x.player+' '+x.rating).join(', ')||'ninguna'):'Ratings de HLTV y umbral de 0,80: ver T5 · Piso colectivo.';d.append(floor);
     parent.append(d);
   }
   for(const [alias,axes] of Object.entries(audit.cipi_diagnostic||{})){
@@ -214,6 +214,22 @@ function renderCasefile(report){
       for(const [i,url] of r.sources.entries()){const a=add(group,'a','Planilla R'+(r.number-1+i)+' ');a.href=url;a.target='_blank';a.rel='noopener noreferrer';}
     }
     const dl=add(group,'a','Demo de la serie · HLTV');dl.href=review.archive_url;dl.target='_blank';dl.rel='noopener noreferrer';
+  }
+  const floor=report.source_network?.floor;
+  if(floor){
+    add(box,'h4','Piso colectivo · Rating de serie inferior a 0,80');
+    add(box,'p','Antes del corte: '+floor.prematch_alerts+' alertas en '+floor.prematch_ratings+' ratings. Última revisión: '+floor.review_alerts+' en '+floor.review_ratings+'.');
+    for(const row of floor.series){
+      const d=document.createElement('details');box.append(d);
+      add(d,'summary',row.team+' vs. '+row.opponent+' · '+row.scope+' · '+row.alerts.length+' alertas');
+      for(const [nick,v] of Object.entries(row.players))add(d,'p',nick+' · '+v.rating.toFixed(2)+(v.rating<0.80?' · ALERTA':'')+' · K-D '+(v.kd||'s/d')+' · ADR '+(v.adr||'s/d')+' · KAST '+(v.kast||'s/d'));
+      for(const m of row.round_evidence||[]){
+        add(d,'p','Respuesta colectiva · '+m.map+' · '+m.recovered+'/'+m.lost_openings+' rondas ganadas tras recibir la primera baja · consulta '+(m.checked||'sin fecha'));
+        const ref=add(d,'a','Ver registro de rondas');ref.href=m.source;ref.rel='noopener noreferrer';ref.target='_blank';
+      }
+      add(d,'p',row.compensation+' · Consulta '+(row.checked||'pendiente'));
+      const a=add(d,'a','Fuente · '+row.method);a.href=row.source;a.target='_blank';a.rel='noopener noreferrer';
+    }
   }
   if(f.causal){
     add(box,'h4','T5 · Secuencias por ronda');

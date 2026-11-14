@@ -165,6 +165,10 @@ def app(environ, start_response):
                 report['identity'] = build_identity(evidence, cutoff)
                 report['multisource'] = dossier(evidence, cutoff)
                 report['source_network'] = collect_sources(evidence,cutoff)
+                floor=report['source_network']['floor']
+                if floor['review_ratings']:
+                    diagnostics['controls']['piso_colectivo_cce']={'estado':'PARCIAL',
+                        'detalle':f"HLTV 3.0: {floor['prematch_alerts']} alertas en {floor['prematch_ratings']} ratings al corte; última revisión: {floor['review_alerts']} en {floor['review_ratings']}. La compensación requiere pruebas por ronda."}
                 report['tasks']['T3_multifuente'] = report['multisource']['status']
                 report['osint'] = public_context(evidence, cutoff)
                 report['tasks']['T4_osint'] = report['osint']['status']

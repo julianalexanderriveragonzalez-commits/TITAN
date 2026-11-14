@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 from lxml import html
 from second_source import norm
+from collective_floor import collect as collect_floor, compensation_cases
 from titan import parse_dt
 
 REGIONS=('dust2.us','dust2.dk','dust2.in','dust2.com.br')
@@ -111,4 +112,7 @@ def collect(evidence,cutoff):
         jobs=[pool.submit(results,n) for n in names]
         archived=snapshot['fixture']==evidence['source'] and parse_dt(snapshot['cutoff'])==cutoff
         news=[] if archived else [pool.submit(regional,d,names,cutoff,bucket) for d in REGIONS]
-        return {'hltv':[j.result() for j in jobs],'regional':snapshot['regional'] if archived else [j.result() for j in news], 'archived':archived}
+        network={'hltv':[j.result() for j in jobs],'regional':snapshot['regional'] if archived else [j.result() for j in news], 'archived':archived}
+    network['floor']=collect_floor(network,cutoff,snapshot.get('series_ratings',{}) if archived else None,lambda url:fetch(url,bucket))
+    compensation_cases(network['floor'],evidence)
+    return network

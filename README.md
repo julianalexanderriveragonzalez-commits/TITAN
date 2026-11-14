@@ -71,3 +71,7 @@ El informe automático contrasta cada serie elegible de BLAST con BO3.gg. Por ju
 ### Expediente T5 y seguimiento por fases
 
 En modo automático, cada ficha enlaza los datos que T1–T4 atribuyen a la misma serie, separando el K-D prepartido y la corroboración posterior. El informe muestra las tres fases, las once tareas y la sensibilidad del indicador al cambiar una victoria por una derrota hipotética. La clasificación deportiva sigue siendo provisional cuando falta evidencia causal. El historial permite volver a abrir la copia congelada desde el mismo navegador mientras exista su registro en SQLite.
+
+### T5 — piso colectivo y fuente del rating
+
+La ficha de HLTV solo aporta rating de serie si coincide el BO3, la página identifica al equipo y la tabla de todos los mapas y ambos lados identifica explícitamente Rating 3.0. Cada participante real conserva rating, K-D, ADR, KAST, enlace y hora de consulta. Los valores estrictamente inferiores a 0,80 generan una alerta. La victoria del equipo no demuestra compensación. Una lectura posterior al corte queda fuera de la decisión previa.
