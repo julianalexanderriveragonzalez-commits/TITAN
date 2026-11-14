@@ -17,6 +17,7 @@ from wsgiref.simple_server import make_server
 from titan import analyze, parse_dt
 from research import automatic_input
 from casefile import build_casefile, workflow
+from volatility import objections as assess_volatility
 from identity import build_identity
 from multisource import dossier
 from source_network import collect as collect_sources
@@ -188,6 +189,7 @@ def app(environ, start_response):
                 report['casefile'] = build_casefile(report, evidence)
                 report['tasks']['T5_fichas_piso'] = report['casefile']['status']
                 # Formal T7 remains gated by T6; the proxy diagnostic is independently visible.
+                report['volatility'] = assess_volatility(report)
                 report['workflow'] = workflow(report,payload)
                 report['methodology_notes'].append('Las fichas consultadas después del corte solo se usan para revisión retrospectiva.')
 

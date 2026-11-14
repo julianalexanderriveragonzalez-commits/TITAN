@@ -28,6 +28,7 @@ function renderReport(rep,id){
     $('result').append(line);
   }
   if(rep.robustness) renderRobustness(rep.robustness,rep.tasks.T7_robustez);
+  if(rep.volatility) renderVolatility(rep.volatility);
   if(rep.identity) renderIdentity(rep.identity);
   if(rep.window){
     const w=rep.window, el=document.createElement('p');
@@ -304,4 +305,22 @@ function renderRobustness(t,status){
     if(t.adverse)el('p','Escenario hipotético: invertir la evidencia en '+ref(t.adverse)+' · margen '+t.adverse.adverse_margin+' ('+result(t.adverse.adverse_margin)+').');
   }
   $('result').append(d);
+}
+
+function renderVolatility(v){
+  const box=document.createElement('details');
+  function add(tag,text){const n=document.createElement(tag);n.textContent=text;box.append(n);return n;}
+  add('summary','T8 · Contradicción y volatilidad');
+  add('p','Objeción principal al corte · '+v.strongest);
+  add('p','Muestra individual: '+v.individual_sample+'/50. Discrepancias documentadas al corte: '+v.conflicts.length+'.');
+  for(const [scope,rows] of [['Antes del corte',v.conflicts],['Revisión posterior',v.late]]){
+    for(const r of rows){const a=add('a',scope+' · '+r.text);a.href=r.source;a.target='_blank';a.rel='noopener noreferrer';box.append(document.createElement('br'));}
+  }
+  const t=v.tipping;
+  if(t.state==='INVERSIÓN'){
+    add('p','Escenario hipotético mínimo: invertir '+t.changes.length+' observaciones cambia el lado favorecido. Margen resultante: '+t.margin+'.');
+    for(const r of t.changes)add('p',(r.shared?'Serie compartida':'Equipo '+r.team)+' · '+(r.group==='series'?'serie':'mecanismo')+' '+r.index+' · '+r.date.slice(0,10));
+  }else{add('p','Escenario del indicador: '+t.state+'.');}
+  add('p','T8 formal: '+v.formal_status+' · depende de T7.');
+  $('result').append(box);
 }
