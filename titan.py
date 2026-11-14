@@ -250,6 +250,22 @@ def prepare_review(data: dict[str, Any]) -> dict[str, Any]:
     return report
 
 
+def ordered_review(findings):
+    """A step can close only after its immediate predecessor closed."""
+    rows = []
+    first_open = None
+    for index, key in enumerate(TASKS):
+        step = key.split('_')[0]
+        observed = findings.get(key, 'PENDIENTE')
+        status = 'BLOQUEADA' if first_open else observed
+        rows.append({'step': step, 'status': status, 'finding': observed,
+                     'requires': TASKS[index-1].split('_')[0] if index else None,
+                     'blocked_by': first_open})
+        if first_open is None and status != 'COMPLETADA':
+            first_open = step
+    return rows
+
+
 def finalize_review(report):
     """Only this boundary may resolve a blind side to a published team."""
     tasks = report['tasks']
@@ -300,6 +316,10 @@ def finalize_review(report):
         score = blind['scores']
         rationale = f"Indicador ciego: A {score['A']:+.2f}, B {score['B']:+.2f}. {reason}"
     tasks['T10_veredicto'] = 'COMPLETADA'
+    report['stage_findings'] = dict(tasks)
+    report['sequence'] = ordered_review(tasks)
+    for key, row in zip(TASKS, report['sequence']):
+        tasks[key] = row['status']
     issued = datetime.now(timezone.utc)
     report['verdict'] = {
         'winner': report['selection'], 'basis': report['selection_basis'],
@@ -310,7 +330,7 @@ def finalize_review(report):
         'objection': report.get('volatility', {}).get('strongest'),
         'tipping': report.get('volatility', {}).get('tipping'),
         'critical_withdrawal': sensitive[0] if sensitive else None,
-        'steps': [{'step': key.split('_')[0], 'status': tasks[key]} for key in TASKS[:10]]
+        'steps': report['sequence'][:10]
     }
     return report
 

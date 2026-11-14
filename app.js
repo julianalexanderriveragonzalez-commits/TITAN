@@ -38,11 +38,11 @@ function renderReport(rep,id){
       (v.objection?'\nObjeción al corte · '+v.objection:'');
     const route=document.createElement('details');
     const title=document.createElement('summary');
-    title.textContent='Recorrido de T1 a T10';
+    title.textContent=rep.sequence?'Recorrido formal de T1 a T11':'Recorrido registrado';
     route.append(title);
-    for(const step of v.steps){
+    for(const step of (rep.postmatch?.steps || rep.sequence || v.steps)){
       const line=document.createElement('div');
-      line.textContent=step.step+' · '+step.status;
+      line.textContent=step.step+' · '+step.status+(step.blocked_by?' · requiere cerrar '+step.blocked_by:'');
       route.append(line);
     }
     $('result').prepend(heading,details,route);
@@ -302,7 +302,7 @@ function renderCasefile(report){
     add(box,'h3','Fases y cerrojo · '+report.evidence_state);
     for(const phase of report.workflow.phases){
       const d=document.createElement('details');box.append(d);add(d,'summary',phase.name);
-      for(const step of phase.steps)add(d,'p',step.id+' · '+step.label+' · '+step.state+' · '+step.reason);
+      for(const step of phase.steps)add(d,'p',step.id+' · '+step.label+' · '+(report.postmatch?.steps?.find(row=>row.step===step.id)?.status||step.state)+' · '+step.reason);
     }
     const metrics=document.createElement('details');box.append(metrics);add(metrics,'summary','MSI y variabilidad individual');
     for(const [key,value] of Object.entries(report.workflow.msi))add(metrics,'p',key+' · '+(value||'Pendiente de evidencia'));

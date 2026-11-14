@@ -41,7 +41,8 @@ class CloudTests(unittest.TestCase):
         status, report = self.request('/api/analyze', 'POST', payload)
         self.assertTrue(status.startswith('200'))
         self.assertEqual(report['volatility']['conclusion'], 'CERRADA SIN DIRECCIÓN CIPI AUTORIZADA')
-        self.assertEqual(report['tasks']['T8_contradicciones'], 'COMPLETADA')
+        self.assertEqual(report['tasks']['T8_contradicciones'], 'BLOQUEADA')
+        self.assertEqual(report['stage_findings']['T8_contradicciones'], 'COMPLETADA')
         for step in ('T6_cipi_ciego', 'T7_robustez', 'T9_desbloqueo_identidad'):
             self.assertEqual(report['tasks'][step], 'BLOQUEADA')
         self.assertEqual(report['volatility']['tipping']['state'], 'INVERSIÓN')
@@ -56,7 +57,7 @@ class CloudTests(unittest.TestCase):
         v=r['verdict']
         self.assertEqual([step['step'] for step in v['steps']], [f'T{i}' for i in range(1,11)])
         self.assertEqual([step['status'] for step in v['steps']],
-                         ['PARCIAL']*5+['BLOQUEADA']*2+['COMPLETADA','BLOQUEADA','COMPLETADA'])
+                         ['PARCIAL']+['BLOQUEADA']*9)
         self.assertEqual((v['timing'],v['winner'],v['type']),('RETROSPECTIVO',r['selection'],'PROVISIONAL FORZADA'))
         self.assertEqual(v['cutoff'],p['match']['cutoff'])
         self.assertEqual(v['objection'],r['volatility']['strongest'])
@@ -81,7 +82,7 @@ class CloudTests(unittest.TestCase):
             route='/api/evaluate/'+r['id']
             status,result=self.request(route,'POST',{'winner':'A'})
             self.assertTrue(status.startswith('200'))
-            self.assertEqual(result['postmatch']['status'],'PARCIAL')
+            self.assertEqual(result['postmatch']['finding'],'PARCIAL')
             reopened=self.request('/api/history/'+r['id'])[1]
             self.assertEqual(reopened.pop('postmatch'),result['postmatch'])
             self.assertEqual(reopened,r['report'])

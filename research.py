@@ -68,6 +68,20 @@ def normalize(name):
     return re.sub(r'[^a-z0-9]', '', name.casefold())
 
 
+def fixture_fives(html, names):
+    """Read an explicit lineup pair from the fixture's published FAQ."""
+    pattern = r'([\w .-]+?) - ([\w ,.-]+?) (?:faced off against|will face|face off against) ([\w .-]+?) - ([\w ,.-]+?) at the '
+    for match in re.finditer(pattern, html):
+        result = {}
+        for team, players in ((match[1], match[2]), (match[3], match[4])):
+            roster = [n.strip() for n in re.split(r',\s*| and ', players) if n.strip()]
+            if len(roster) == 5 and len({n.casefold() for n in roster}) == 5:
+                result[normalize(team)] = roster
+        if set(result) == {normalize(n) for n in names}:
+            return result
+    return {}
+
+
 def research(match):
     names = [match['team_a'], match['team_b']]
     cutoff = parse_dt(match['cutoff'])
@@ -152,6 +166,12 @@ def research(match):
             'comebacks': [sum(s['result']=='W' for s in lost_openers),len(lost_openers)]
         }
         report[name]={'observed':observed,'profile':HOST+profile,'score_conflicts':conflicts,'series':series,'player_series':{nick:sum(len(s['players'].get(nick,{}))==len(s['maps']) for s in series) for nick in players.values()}}
+    lineups = fixture_fives(page(target, bucket), names)
+    checked = datetime.now(timezone.utc)
+    for name in names:
+        if checked < cutoff and normalize(name) in lineups:
+            report[name]['fixture_lineup_evidence'] = {
+                'players':lineups[normalize(name)], 'source':HOST+target, 'checked_at':checked.isoformat()}
     return teams, {'source':HOST+target,'tournament':fixture['tournament']['name'],'stage':fixture['name'],'cutoff':cutoff.isoformat(),'retrieved':now.isoformat(),'teams':report,'unavailable_pages':sum(item is None for item in details.values())}
 
 

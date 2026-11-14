@@ -10,7 +10,7 @@ FROZEN='2026-11-12T10:10:00Z'
 
 class PostmatchTests(unittest.TestCase):
     def report(self):
-        return {'match':MATCH,'selection':'MOUZ','tasks':dict.fromkeys(TASKS,'PENDIENTE'),
+        return {'match':MATCH,'selection':'MOUZ','tasks':dict.fromkeys(TASKS,'COMPLETADA'),
                 'postmatch_hypothesis':'REMONTAR_TRAS_PERDER_MAPA_1'}
 
     def test_causal_outcomes(self):

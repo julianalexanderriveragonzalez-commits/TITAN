@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import re
 from time import time
 from research import HOST, MATCH, detail, normalize
-from titan import TASKS, parse_dt
+from titan import TASKS, ordered_review, parse_dt
 
 
 def official_result(match, source):
@@ -40,6 +40,8 @@ def review(report, result, frozen_at, evaluated_at):
     cutoff = parse_dt(report['match']['cutoff'])
     prospective = bool(frozen_at and parse_dt(frozen_at) < cutoff
                        and report.get('verdict', {}).get('timing', 'PREPARTIDO') == 'PREPARTIDO')
+    if parse_dt(evaluated_at) <= cutoff:
+        raise ValueError('T11 requiere una evaluación posterior al corte.')
     winner = result.get('winner')
     selected = report['selection']
     mechanism = 'SIN HIPÓTESIS TÁCTICA CONGELADA'
@@ -58,9 +60,11 @@ def review(report, result, frozen_at, evaluated_at):
         state = 'COMPLETADA'
     else:
         state = 'PARCIAL'
-    return {'status': state, 'frozen_at': frozen_at, 'evaluated_at': evaluated_at,
+    findings = dict(report.get('stage_findings', report['tasks']))
+    findings[TASKS[10]] = state
+    steps = ordered_review(findings)
+    return {'status': steps[-1]['status'], 'finding': state, 'frozen_at': frozen_at, 'evaluated_at': evaluated_at,
             'selected': selected, 'actual': result, 'prospective': prospective,
             'correct': selected == winner if prospective and winner else None,
             'mechanism': mechanism, 'hypothesis': hypothesis,
-            'steps': [{'step': k.split('_')[0], 'status': state if k == TASKS[10] else
-                       report['tasks'].get(k,'PENDIENTE')} for k in TASKS]}
+            'steps': steps}

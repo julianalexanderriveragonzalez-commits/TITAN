@@ -47,7 +47,7 @@ def build_identity(evidence, cutoff):
         starters=confirmation.get('players',[])
         fixture_ok=(unique_five(starters) and confirmation.get('source')==evidence.get('source')
                     and bool(confirmation.get('checked_at')) and parse_dt(confirmation['checked_at'])<cutoff)
-        verified=(fixture_ok and unique_five(roster) and bool(rows)
+        verified=(fixture_ok and unique_five(roster) and {key(n) for n in starters} == {key(n) for n in roster} and bool(rows)
                   and all(s['prematch_status']=='VERIFICADA' for s in rows))
         teams[name]={'verified':verified,'starters':starters if fixture_ok else [],'roster':roster,'roster_source':team['profile'],'series':rows,
                      'fixture_lineup':'CONFIRMADO' if fixture_ok else 'PENDIENTE DE CONFIRMACIÓN ESPECÍFICA'}
