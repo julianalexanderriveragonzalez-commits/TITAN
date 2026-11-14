@@ -1,0 +1,153 @@
+{
+  "fixture": "https://blast.tv/cs/tournaments/rivals-2026-season-2/match/0d409c57/vitality-mouz",
+  "cutoff": "2026-11-13T08:00:00+00:00",
+  "checked": "2026-11-14T01:25:08.726677+00:00",
+  "teams": {
+    "vitality": [
+      {
+        "teams": [
+          "vitality",
+          "furia"
+        ],
+        "scores": [
+          1,
+          2
+        ],
+        "date": "2026-11-12",
+        "url": "https://www.hltv.org/matches/2400201/furia-vs-vitality-blast-rivals-2026-season-2"
+      },
+      {
+        "teams": [
+          "vitality",
+          "falcons"
+        ],
+        "scores": [
+          2,
+          0
+        ],
+        "date": "2026-11-11",
+        "url": "https://www.hltv.org/matches/2399852/vitality-vs-falcons-blast-rivals-2026-season-2"
+      },
+      {
+        "teams": [
+          "vitality",
+          "nemiga"
+        ],
+        "scores": [
+          0,
+          2
+        ],
+        "date": "2026-10-30",
+        "url": "https://www.hltv.org/matches/2399756/nemiga-vs-vitality-pgl-masters-bucharest-2026"
+      },
+      {
+        "teams": [
+          "vitality",
+          "natusvincere"
+        ],
+        "scores": [
+          2,
+          1
+        ],
+        "date": "2026-10-29",
+        "url": "https://www.hltv.org/matches/2399753/vitality-vs-natus-vincere-pgl-masters-bucharest-2026"
+      }
+    ],
+    "mouz": [
+      {
+        "teams": [
+          "mouz",
+          "fut"
+        ],
+        "scores": [
+          2,
+          1
+        ],
+        "date": "2026-11-12",
+        "url": "https://www.hltv.org/matches/2400202/fut-vs-mouz-blast-rivals-2026-season-2"
+      },
+      {
+        "teams": [
+          "mouz",
+          "g2"
+        ],
+        "scores": [
+          1,
+          2
+        ],
+        "date": "2026-11-11",
+        "url": "https://www.hltv.org/matches/2399854/mouz-vs-g2-blast-rivals-2026-season-2"
+      },
+      {
+        "teams": [
+          "mouz",
+          "betboom"
+        ],
+        "scores": [
+          2,
+          0
+        ],
+        "date": "2026-11-07",
+        "url": "https://www.hltv.org/matches/2400009/mouz-vs-betboom-iem-beijing-2026"
+      },
+      {
+        "teams": [
+          "mouz",
+          "parivision"
+        ],
+        "scores": [
+          2,
+          0
+        ],
+        "date": "2026-11-04",
+        "url": "https://www.hltv.org/matches/2400003/parivision-vs-mouz-iem-beijing-2026"
+      },
+      {
+        "teams": [
+          "mouz",
+          "betboom"
+        ],
+        "scores": [
+          2,
+          0
+        ],
+        "date": "2026-11-03",
+        "url": "https://www.hltv.org/matches/2399993/mouz-vs-betboom-iem-beijing-2026"
+      }
+    ]
+  },
+  "regional": [
+    {
+      "name": "dust2.us",
+      "url": "https://www.dust2.us/rss",
+      "checked": "2026-11-14T01:25:54.100773+00:00",
+      "state": "CONSULTADA",
+      "items": [],
+      "before": false
+    },
+    {
+      "name": "dust2.dk",
+      "url": "https://www.dust2.dk/rss",
+      "checked": "2026-11-14T01:25:54.101684+00:00",
+      "state": "CONSULTADA",
+      "items": [],
+      "before": false
+    },
+    {
+      "name": "dust2.in",
+      "url": "https://www.dust2.in/rss",
+      "checked": "2026-11-14T01:25:54.102101+00:00",
+      "state": "CONSULTADA",
+      "items": [],
+      "before": false
+    },
+    {
+      "name": "dust2.com.br",
+      "url": "https://www.dust2.com.br/rss",
+      "checked": "2026-11-14T01:25:54.102443+00:00",
+      "state": "CONSULTADA",
+      "items": [],
+      "before": false
+    }
+  ]
+}

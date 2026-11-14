@@ -19,6 +19,7 @@ from research import automatic_input
 from casefile import build_casefile, workflow
 from identity import build_identity
 from multisource import dossier
+from source_network import collect as collect_sources
 from osint_context import context as public_context
 from audit import run as audit_match
 
@@ -163,6 +164,7 @@ def app(environ, start_response):
                 diagnostics = audit_match(report, payload, evidence)
                 report['identity'] = build_identity(evidence, cutoff)
                 report['multisource'] = dossier(evidence, cutoff)
+                report['source_network'] = collect_sources(evidence,cutoff)
                 report['tasks']['T3_multifuente'] = report['multisource']['status']
                 report['osint'] = public_context(evidence, cutoff)
                 report['tasks']['T4_osint'] = report['osint']['status']

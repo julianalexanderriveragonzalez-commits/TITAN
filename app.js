@@ -37,6 +37,7 @@ function renderReport(rep,id){
     }
   }
   if(rep.multisource) renderSources(rep.multisource);
+  if(rep.source_network) renderNetwork(rep.source_network);
   if(rep.osint) renderContext(rep.osint);
   if(rep.audit) renderAudit(rep.audit);
   if(rep.research) renderEvidence(rep.research);
@@ -246,5 +247,28 @@ function renderCasefile(report){
     const a=report.workflow.adverse;
     if(a)add(box,'p','Escenario hipotético: cambiar una victoria por derrota el '+a.changed_date.slice(0,10)+'. Margen experimental del seleccionado: '+a.margin+'.');
   }
+  $('result').append(box);
+}
+
+function renderNetwork(network){
+  const box=document.createElement('section');
+  function text(el,tag,value){const node=document.createElement(tag);node.textContent=value;el.append(node);return node;}
+  function link(el,url,label){const a=text(el,'a',label);a.href=url;a.target='_blank';a.rel='noopener noreferrer';}
+  text(box,'h3','Fuentes CS2 · HLTV y prensa regional');
+  if(network.archived)text(box,'p','Consulta archivada para este encuentro. Las fechas indican cuándo se recogió la evidencia.');
+  for(const t of network.hltv){
+    const d=document.createElement('details');box.append(d);text(d,'summary','HLTV · '+t.name+' · '+t.state);
+    link(d,t.url,'Índice de resultados');text(d,'p','Consulta: '+t.checked);
+    for(const s of t.series){
+      text(d,'p',s.date.slice(0,10)+' vs. '+s.opponent+' · '+s.state+(s.score?' · '+s.score.join('–'):'')+' · '+(s.before?'PREPARTIDO':'RETROSPECTIVA'));
+      if(s.url)link(d,s.url,'Abrir la ficha de HLTV');
+    }
+  }
+  for(const f of network.regional){
+    const d=document.createElement('details');box.append(d);text(d,'summary',f.name+' · '+f.state+' · '+f.items.length+' titulares relacionados');
+    link(d,f.url,'Boletín');text(d,'p','Consulta: '+f.checked);
+    for(const item of f.items){link(d,item.url,item.title);text(d,'p',item.published+' · '+(f.before?'PREPARTIDO':'RETROSPECTIVA'));}
+  }
+  text(box,'p','Las menciones regionales quedan por validar. La concordancia del marcador no verifica el K-D individual ni una causa táctica.');
   $('result').append(box);
 }
