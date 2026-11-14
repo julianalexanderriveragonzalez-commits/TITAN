@@ -3,7 +3,7 @@ const $ = id => document.getElementById(id);
 function data() {
   const a=$('a').value.trim(),b=$('b').value.trim(),d=$('date').value;
   if(!a || !b || a===b || !d) throw Error('Introduce dos equipos distintos y la fecha del encuentro.');
-  return {research_mode:$('manual').checked?'manual':'automatic',match:{id:crypto.randomUUID(),team_a:a,team_b:b,cutoff:d+':00-05:00'},teams:{[a]:$('manual').checked?JSON.parse($('sa').value):{},[b]:$('manual').checked?JSON.parse($('sb').value):{}}};
+  return {postmatch_hypothesis:$('comeback').checked?'REMONTAR_TRAS_PERDER_MAPA_1':null,research_mode:$('manual').checked?'manual':'automatic',match:{id:crypto.randomUUID(),team_a:a,team_b:b,cutoff:d+':00-05:00'},teams:{[a]:$('manual').checked?JSON.parse($('sa').value):{},[b]:$('manual').checked?JSON.parse($('sb').value):{}}};
 }
 async function api(url,method='GET',body){
   const r=await fetch(url,{method,headers:method==='POST'?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,cache:'no-store'});
@@ -46,6 +46,17 @@ function renderReport(rep,id){
       route.append(line);
     }
     $('result').prepend(heading,details,route);
+  }
+  if(rep.postmatch){
+    const a=rep.postmatch, panel=document.createElement('section');
+    const heading=document.createElement('h3');heading.textContent='T11 · '+a.status;panel.append(heading);
+    const lines=['Elección: '+a.selected+' · Ganador real: '+(a.actual.winner||'pendiente'),
+      a.prospective?(a.correct?'Acierto':'Fallo')+' · Resultado '+a.actual.origin:'Reconstrucción retrospectiva · excluida del registro de aciertos',
+      'Mecanismo: '+a.mechanism];
+    for(const m of a.actual.maps||[])lines.push(m.map.replace('de_','')+' · '+Object.entries(m.scores).map(([n,s])=>n+' '+s).join(' / '));
+    for(const text of lines){const p=document.createElement('p');p.textContent=text;panel.append(p);}
+    if(a.actual.source){const link=document.createElement('a');link.href=a.actual.source;link.textContent='Ficha oficial de BLAST';panel.append(link);}
+    $('result').append(panel);
   }
   if(rep.snapshot_id){
     const download=document.createElement('button');
@@ -92,9 +103,9 @@ async function history(){
    const p=document.createElement('p');p.textContent=x.match.team_a+' vs. '+x.match.team_b+' · '+x.selection+' · '+x.confidence+(x.actual_winner?' · Resultado: '+x.actual_winner+(x.correct?' ✓':' ✗'):' · pendiente'); div.append(p);
    const open=document.createElement('button');open.className='secondary';open.textContent='Abrir expediente';
    open.onclick=async()=>{try{renderReport(await api('/api/history/'+x.id),x.id);$('result').scrollIntoView();}catch(e){show(e.message);}};div.append(open);
-   if(!x.actual_winner){const btn=document.createElement('button');btn.className='secondary';btn.textContent='Registrar resultado';btn.onclick=async()=>{
-     const winner=prompt('Ganador real (escribe exactamente '+x.match.team_a+' o '+x.match.team_b+')');if(winner===null)return;
-     try{await api('/api/evaluate/'+x.id,'POST',{winner});await history()}catch(e){alert(e.message)}
+   if(!x.actual_winner){const btn=document.createElement('button');btn.className='secondary';btn.textContent=x.fixture_source?'Auditar resultado en BLAST':'Registrar resultado manual';btn.onclick=async()=>{
+     const winner=x.fixture_source?undefined:prompt('Ganador real (escribe exactamente '+x.match.team_a+' o '+x.match.team_b+')');if(winner===null)return;
+     try{await api('/api/evaluate/'+x.id,'POST',{winner});renderReport(await api('/api/history/'+x.id),x.id);await history()}catch(e){alert(e.message)}
    };div.append(btn)}
   }
  }catch(e){$('history').textContent='Error: '+e.message}

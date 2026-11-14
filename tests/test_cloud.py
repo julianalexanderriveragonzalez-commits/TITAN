@@ -13,6 +13,9 @@ class CloudTests(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory()
         self.env=patch.dict(os.environ,{'TITAN_DB':str(Path(self.tmp.name)/'titan.sqlite3')})
         self.env.start()
+        final = patch('cloud.official_result', return_value={'origin':'BLAST','winner':'MOUZ','maps':[]})
+        final.start()
+        self.addCleanup(final.stop)
         self.cookie = ''
     def tearDown(self):
         self.env.stop();self.tmp.cleanup()
@@ -58,6 +61,8 @@ class CloudTests(unittest.TestCase):
         self.assertEqual(v['cutoff'],p['match']['cutoff'])
         self.assertEqual(v['objection'],r['volatility']['strongest'])
         self.assertNotIn('snapshot_id',r)
+        self.assertEqual(r['postmatch']['status'],'BLOQUEADA')
+        self.assertIsNone(r['postmatch']['correct'])
 
     def test_t10_frozen_administrative_verdict(self):
         _,result=self.request('/api/freeze','POST',self.payload(2))
@@ -66,6 +71,21 @@ class CloudTests(unittest.TestCase):
         self.assertEqual(r['verdict']['basis'],'DESEMPATE ADMINISTRATIVO')
         self.assertEqual(r['verdict']['timing'],'PREPARTIDO')
         self.assertEqual(r['verdict']['reason'],r['tie_break_explanation'])
+
+    def test_complete_cloud_postmatch_and_reopen(self):
+        from datetime import datetime as clock
+        p=self.payload(2)
+        with patch('cloud.datetime',wraps=clock) as now:
+            _,r=self.request('/api/freeze','POST',p)
+            now.now.return_value=clock.now(timezone.utc)+timedelta(days=3)
+            route='/api/evaluate/'+r['id']
+            status,result=self.request(route,'POST',{'winner':'A'})
+            self.assertTrue(status.startswith('200'))
+            self.assertEqual(result['postmatch']['status'],'PARCIAL')
+            reopened=self.request('/api/history/'+r['id'])[1]
+            self.assertEqual(reopened.pop('postmatch'),result['postmatch'])
+            self.assertEqual(reopened,r['report'])
+            self.assertTrue(self.request(route,'POST',{'winner':'B'})[0].startswith('409'))
 
     def test_open_panel(self):
         status, page = self.request('/')

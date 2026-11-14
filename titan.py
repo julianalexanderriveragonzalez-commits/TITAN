@@ -325,7 +325,7 @@ def append_log(report: dict[str, Any], path: Path) -> None:
     identifier = report['input_sha256'][:16]
     dest = path / f'prepartido_{identifier}.json'
     with dest.open('x', encoding='utf-8') as f:
-        json.dump(report, f, ensure_ascii=False, indent=2)
+        json.dump(dict(report, frozen_at=datetime.now(timezone.utc).isoformat()), f, ensure_ascii=False, indent=2)
     print(f'Registro inmutable creado: {dest}')
 
 
@@ -334,9 +334,15 @@ def evaluate(logfile: Path, result: str) -> dict[str, Any]:
         prior = json.load(f)
     if result not in (prior['match']['team_a'], prior['match']['team_b']):
         raise ValueError('Ganador real no coincide con los dos equipos del registro')
+    from postmatch import review
+    now = datetime.now(timezone.utc)
+    if now <= parse_dt(prior['match']['cutoff']):
+        raise ValueError('El encuentro no ha llegado al corte.')
+    audit = review(prior, {'winner': result, 'origin': 'MANUAL'},
+                   prior.get('frozen_at'), now.isoformat())
     return {'match_id': prior['match']['id'], 'version':prior['version'],
             'predicted':prior['selection'], 'actual': result,
-            'correct':prior['selection']==result,
+            'correct':audit['correct'], 'postmatch':audit,
             'pre_match_hash':prior['input_sha256'],
             'note':'Evaluación postpartido separada; nunca modifica el pronóstico previo.'}
 

@@ -15,6 +15,7 @@ from pathlib import Path
 from http.cookies import CookieError, SimpleCookie
 from wsgiref.simple_server import make_server
 from titan import prepare_review, finalize_review, parse_dt
+from postmatch import official_result, review as postmatch_review
 from research import automatic_input
 from casefile import build_casefile, workflow
 from volatility import objections as assess_volatility
@@ -42,6 +43,8 @@ def init_database():
             input_json TEXT NOT NULL, report_json TEXT NOT NULL,
             actual_winner TEXT, evaluated_utc TEXT
         )''')
+        db.execute('''CREATE TABLE IF NOT EXISTS postmatch_reviews
+                      (id TEXT PRIMARY KEY, audit_json TEXT NOT NULL)''')
 
 
 def reply(start, status, body, content_type='application/json; charset=utf-8', extra=()):
@@ -197,12 +200,22 @@ def app(environ, start_response):
                 report['tasks']['T8_contradicciones'] = report['volatility']['formal_status']
                 report['methodology_notes'].append('Las fichas consultadas después del corte solo se usan para revisión retrospectiva.')
 
+            if evidence:
+                report['fixture_source'] = evidence['source']
+            if payload.get('postmatch_hypothesis') == 'REMONTAR_TRAS_PERDER_MAPA_1':
+                report['postmatch_hypothesis'] = payload['postmatch_hypothesis']
             finalize_review(report)
             if evidence:
                 report['workflow'] = workflow(report,payload)
             now = datetime.now(timezone.utc)
             if cutoff <= now:
                 if path.endswith('analyze'):
+                    if evidence:
+                        try:
+                            actual = official_result(report['match'], report['fixture_source'])
+                        except (OSError, ValueError, KeyError, TypeError) as exc:
+                            actual = {'origin':'PENDIENTE','detail':str(exc)[:200]}
+                        report['postmatch'] = postmatch_review(report, actual, None, now.isoformat())
                     return json_reply(start_response, '200 OK', report)
                 return json_reply(start_response, '409 Conflict',
                                   {'error':'El corte temporal debe ser futuro para congelar una predicción prospectiva.'})
@@ -219,11 +232,16 @@ def app(environ, start_response):
         if method == 'GET' and re.fullmatch(r'/api/history/[0-9a-f]{24}',path):
             init_database()
             with sqlite3.connect(db_path(),timeout=10) as db:
-                row=db.execute('SELECT report_json FROM browser_predictions WHERE owner=? AND id=?',
+                row=db.execute('SELECT report_json,actual_winner,created_utc,evaluated_utc,audit_json FROM browser_predictions LEFT JOIN postmatch_reviews USING(id) WHERE owner=? AND id=?',
                                (owner,path.rsplit('/',1)[-1])).fetchone()
             if row is None:
                 return json_reply(start_response,'404 Not Found',{'error':'Registro no encontrado'})
-            return json_reply(start_response,'200 OK',json.loads(row[0]))
+            report=json.loads(row[0])
+            if row[4]:
+                report['postmatch']=json.loads(row[4])
+            elif row[1]:
+                report['postmatch']=postmatch_review(report, {'winner':row[1],'origin':'MANUAL'},row[2],row[3])
+            return json_reply(start_response,'200 OK',report)
         if method == 'GET' and path == '/api/history':
             init_database()
             with sqlite3.connect(db_path(), timeout=10) as db:
@@ -232,7 +250,7 @@ def app(environ, start_response):
             for ident,created,rep,actual,ev in rows:
                 r=json.loads(rep)
                 items.append({'id':ident,'created_utc':created,'match':r['match'], 'selection':r['selection'],
-                              'confidence':r['confidence'],'actual_winner':actual,
+                              'fixture_source':r.get('fixture_source'),'confidence':r['confidence'],'actual_winner':actual,
                               'correct':None if actual is None else r['selection']==actual,
                               'evaluated_utc':ev})
             return json_reply(start_response, '200 OK', {'items':items})
@@ -244,18 +262,35 @@ def app(environ, start_response):
             winner = payload.get('winner') if isinstance(payload,dict) else None
             init_database()
             with sqlite3.connect(db_path(), timeout=10) as db:
-                row = db.execute('SELECT report_json,actual_winner FROM browser_predictions WHERE id=? AND owner=?',(ident,owner)).fetchone()
+                row = db.execute('SELECT report_json,actual_winner,created_utc FROM browser_predictions WHERE id=? AND owner=?',(ident,owner)).fetchone()
                 if not row: return json_reply(start_response,'404 Not Found',{'error':'Registro no encontrado'})
                 r=json.loads(row[0]); allowed=(r['match']['team_a'],r['match']['team_b'])
-                if winner not in allowed: raise ValueError('Ganador real inválido')
+
                 if row[1] is not None:
                     return json_reply(start_response,'409 Conflict',{'error':'Este resultado ya fue registrado y es inmutable'})
                 # Forbid recording outcome before the pre-match cutoff.
                 if datetime.now(timezone.utc) <= parse_dt(r['match']['cutoff']):
                     return json_reply(start_response,'409 Conflict',{'error':'Aún no pasó el corte temporal del partido'})
                 evaluated = datetime.now(timezone.utc).isoformat()
-                db.execute('UPDATE browser_predictions SET actual_winner=?,evaluated_utc=? WHERE id=? AND actual_winner IS NULL',(winner,evaluated,ident))
-            return json_reply(start_response,'200 OK',{'id':ident,'winner':winner,'correct':winner==r['selection']})
+                if r.get('fixture_source'):
+                    try:
+                        actual = official_result(r['match'], r['fixture_source'])
+                    except (OSError, ValueError, TypeError, KeyError) as exc:
+                        return json_reply(start_response,'422 Unprocessable Entity',{'error':'Resultado pendiente en BLAST. '+str(exc)[:150]})
+                    if winner is not None and winner != actual['winner']:
+                        raise ValueError('El ganador indicado contradice la ficha oficial.')
+                    winner = actual['winner']
+                else:
+                    if winner not in allowed:
+                        raise ValueError('Ganador real inválido')
+                    actual = {'winner':winner,'origin':'MANUAL'}
+                audit = postmatch_review(r,actual,row[2],evaluated)
+                changed=db.execute('UPDATE browser_predictions SET actual_winner=?,evaluated_utc=? WHERE id=? AND actual_winner IS NULL',
+                                   (winner,evaluated,ident)).rowcount
+                if not changed:
+                    return json_reply(start_response,'409 Conflict',{'error':'Resultado ya registrado.'})
+                db.execute('INSERT INTO postmatch_reviews VALUES (?,?)',(ident,json.dumps(audit,ensure_ascii=False)))
+            return json_reply(start_response,'200 OK',{'id':ident,'winner':winner,'correct':audit['correct'],'postmatch':audit})
     except (KeyError,TypeError,ValueError,OverflowError) as exc:
         return json_reply(start_response,'400 Bad Request',{'error':str(exc)[:350]})
     return json_reply(start_response,'404 Not Found',{'error':'Ruta no encontrada'})
