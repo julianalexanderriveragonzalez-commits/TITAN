@@ -15,6 +15,8 @@ from pathlib import Path
 from http.cookies import CookieError, SimpleCookie
 from wsgiref.simple_server import make_server
 from titan import prepare_review, finalize_review, parse_dt
+from competitive_review import evaluate as compare_portfolios
+from titan import TASKS
 from postmatch import official_result, review as postmatch_review
 from research import automatic_input
 from casefile import build_casefile, workflow
@@ -175,7 +177,7 @@ def app(environ, start_response):
                     diagnostics['controls']['piso_colectivo_cce']={'estado':'PARCIAL',
                         'detalle':f"HLTV 3.0: {floor['prematch_alerts']} alertas en {floor['prematch_ratings']} ratings al corte; última revisión: {floor['review_alerts']} en {floor['review_ratings']}. La compensación requiere pruebas por ronda."}
                 report['tasks']['T3_multifuente'] = report['multisource']['status']
-                report['osint'] = public_context(evidence, cutoff)
+                report['osint'] = public_context(evidence, cutoff, report['source_network'])
                 report['tasks']['T4_osint'] = report['osint']['status']
                 report['audit'] = diagnostics
                 report['tasks']['T1_anonimizacion'] = report['identity']['status']
@@ -196,6 +198,22 @@ def app(environ, start_response):
                 report['controls_R33_R34'] = {k:v['estado'] for k,v in diagnostics['controls'].items()}
                 report['casefile'] = build_casefile(report, evidence)
                 report['tasks']['T5_fichas_piso'] = report['casefile']['status']
+                groups = report.pop('_series_for_cipi')
+                names = [payload['match'][key] for key in ('team_a','team_b')]
+                missing = [k.split('_')[0] for k in TASKS[:5] if report['tasks'][k]!='COMPLETADA']
+                comparison = {'side':None,'families':[],'trials':[],'survives':False}
+                if not missing:
+                    comparison = compare_portfolios(groups,[report['osint']['rest_hours'][n] for n in names])
+                comparison['pending_steps'] = missing
+                comparison['sources'] = [[{'series':r['id'],'urls':r['sources']} for r in g] for g in groups]
+                comparison['documented_series'] = [len(g) for g in groups]
+                report['cipi_review'] = comparison
+                if comparison['side']:
+                    report['tasks']['T6_cipi_ciego'] = 'COMPLETADA'
+                    if comparison['survives']:
+                        report['tasks']['T7_robustez'] = 'COMPLETADA'
+                        report['cipi_decision'] = {'side':comparison['side'],'robust_side':comparison['side'],
+                                                  'aliases':dict(zip('AB',names)),'input_sha256':report['input_sha256']}
                 report['volatility'] = assess_volatility(report)
                 report['tasks']['T8_contradicciones'] = report['volatility']['formal_status']
                 report['methodology_notes'].append('Las fichas consultadas después del corte solo se usan para revisión retrospectiva.')

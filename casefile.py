@@ -1,6 +1,7 @@
 """Join T1–T4 into an inspectable dossier. Late evidence stays outside the verdict."""
 from titan import parse_dt, window_rows
 from causal import build_causal
+from competitive_review import series_record
 from pathlib import Path
 import json
 
@@ -10,14 +11,23 @@ def build_casefile(report, evidence):
     by_source={(r['team'],r['primary']):r for r in report['multisource']['series']}
     teams={}
     observed=0
+    portfolios=[]
+    floor=report.get('source_network',{}).get('floor',{}).get('series',[])
+    ratings={(r['team'],r['date'],r['opponent']):r for r in floor if r['scope']=='PREPARTIDO'}
     for slot, name in zip(('Equipo A','Equipo B'),(report['match']['team_a'],report['match']['team_b'])):
         team=evidence['teams'][name]
         sheets=[{'alias':f'Jugador {i}','name':nick,'observations':[]}
                 for i,nick in enumerate(team['player_series'],1)]
         collective=[]
+        portfolio=[]
+        portfolios.append(portfolio)
         for series in window_rows(team['series'],cutoff,series=True)[0][:5]:
             sources=by_source[(name,series['source'])]
             maps=series['maps']
+            record=series_record(series, team['player_series'], ratings.get((name,series['date'],series['opponent'])),
+                                 sources['prematch']=='CORROBORADA')
+            if record:
+                portfolio.append(record)
             primary_before=parse_dt(evidence['retrieved'])<cutoff
             collective.append({'id':series['id'],'date':series['date'],'opponent':series['opponent'],
                                'maps':maps,'source':series['source'],'result':series['result'],
@@ -41,15 +51,19 @@ def build_casefile(report, evidence):
     if observed<50: blockers.append(f'Muestra individual prepartido {observed}/50.')
     if causal['prematch']['series']<10: blockers.append(f"Series con secuencias de apertura al corte: {causal['prematch']['series']}/10.")
     if not causal['prematch']['compatible']: blockers.append('Sin secuencia repetida y compatible con el siguiente rival al corte.')
-    blockers.append('Falta validar la explicación táctica y las alternativas con eventos ordenados de ronda.')
+    if not all(len(group)==5 and len({s['id'] for s in group})==5 for group in portfolios):
+        blockers.append('Faltan ratings, KAST o rondas completas con apertura, intercambio, economía y utilidad en las diez revisiones.')
+    if report['multisource'].get('kd_before')!=50:
+        blockers.append('Faltan observaciones individuales corroboradas antes del corte.')
+    report['_series_for_cipi']=portfolios
     record=json.loads(Path(__file__).with_name('mirage_rounds.json').read_text())
     review=record if any(s['id']==record['series_id'] and any(m['map'].removeprefix('de_')==record['map'] for m in s['maps'])
                          for t in teams.values() for s in t['series']) else None
     return {'round_review':review,'causal':causal,'t6_blockers':blockers,'teams':teams,'observations_at_cutoff':observed,
             'series_count':sum(len(t['series']) for t in teams.values()),
-            'status':'PARCIAL' if observed or any(t['series'] for t in teams.values()) else 'PENDIENTE',
+            'status':'COMPLETADA' if not blockers else 'PARCIAL' if observed or any(t['series'] for t in teams.values()) else 'PENDIENTE',
             'transferability':'Contraste por mapa, lado, primera baja y relación de equipamiento. La compatibilidad describe una hipótesis.',
-            'missing':['Rol por serie','KAST y rating comparable de serie','Causalidad y compensación por ronda']}
+            'missing':blockers, 'coverage_note':'Las rondas documentan conductas y resultados. Las funciones nominales y la atribución individual de los intercambios requieren una fuente adicional.'}
 
 
 def workflow(report, payload):

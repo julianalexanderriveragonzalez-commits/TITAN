@@ -16,6 +16,12 @@ from collective_floor import collect as collect_floor, compensation_cases
 from titan import parse_dt
 
 REGIONS=('dust2.us','dust2.dk','dust2.in','dust2.com.br')
+FEEDS={
+    'pro.eslgaming.com':'https://pro.eslgaming.com/tour/category/cs2/feed/',
+    'news.pglesports.com':'https://news.pglesports.com/feed/',
+    'store.steampowered.com':'https://store.steampowered.com/feeds/news/app/730/?l=english',
+    'esportsinsider.com':'https://esportsinsider.com/feed',
+}
 TEAM_IDS={'vitality':9565,'mouz':4494}
 HLTV='https://www.hltv.org'
 
@@ -67,7 +73,7 @@ def reconcile(name,series,index,checked,cutoff):
 
 
 def regional(domain,names,cutoff,bucket):
-    url='https://www.'+domain+'/rss'
+    url=FEEDS.get(domain,'https://www.'+domain+'/rss')
     try:
         data,checked=fetch(url,bucket)
         channel=ElementTree.fromstring(data).find('channel')
@@ -76,8 +82,10 @@ def regional(domain,names,cutoff,bucket):
         for el in channel.findall('item')[:80]:
             title=(el.findtext('title') or '').strip()
             link=el.findtext('link') or ''
-            if urlsplit(link).scheme!='https' or urlsplit(link).hostname not in (domain,'www.'+domain):continue
-            if not any(re.search(r'(?<!\w)'+re.escape(n)+r'(?!\w)',title,re.I) for n in names):continue
+            allowed={domain,'www.'+domain}
+            if domain=='store.steampowered.com':allowed.add('steamcommunity.com')
+            if urlsplit(link).scheme!='https' or urlsplit(link).hostname not in allowed:continue
+            if domain!='store.steampowered.com' and not any(re.search(r'(?<!\w)'+re.escape(n)+r'(?!\w)',title,re.I) for n in names):continue
             try:date=parsedate_to_datetime(el.findtext('pubDate') or '')
             except (TypeError,ValueError,OverflowError):continue
             if date.tzinfo is None or not cutoff-timedelta(days=15)<=date<cutoff or date>parse_dt(checked):continue
@@ -111,8 +119,20 @@ def collect(evidence,cutoff):
     with ThreadPoolExecutor(max_workers=6) as pool:
         jobs=[pool.submit(results,n) for n in names]
         archived=snapshot['fixture']==evidence['source'] and parse_dt(snapshot['cutoff'])==cutoff
-        news=[] if archived else [pool.submit(regional,d,names,cutoff,bucket) for d in REGIONS]
+        news=[] if archived else [pool.submit(regional,d,names,cutoff,bucket) for d in (*REGIONS,*FEEDS)]
         network={'hltv':[j.result() for j in jobs],'regional':snapshot['regional'] if archived else [j.result() for j in news], 'archived':archived}
+    if archived:
+        archived_names={f['name'] for f in network['regional']}
+        for domain,url in FEEDS.items():
+            if domain not in archived_names:
+                network['regional'].append({'name':domain,'url':url,'state':'SIN CAPTURA PREPARTIDO','items':[],'before':False,'checked':None})
+    seen=set()
+    for feed in network['regional']:
+        for item in feed['items']:
+            title=re.sub(r'[^\w]+',' ',item['title'].casefold()).strip()
+            link=item['url'].split('?',1)[0].rstrip('/')
+            item['duplicate']=title in seen or link in seen
+            seen.update((title,link))
     network['floor']=collect_floor(network,cutoff,snapshot.get('series_ratings',{}) if archived else None,lambda url:fetch(url,bucket))
     compensation_cases(network['floor'],evidence)
     return network

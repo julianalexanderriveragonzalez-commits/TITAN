@@ -20,7 +20,7 @@ async function action(freeze){
  }catch(e){show('Error: '+e.message)}
 }
 function renderReport(rep,id){
-  show((id?'Predicción congelada · ID '+id+'\n':'')+(rep.tie_break_explanation?'Desempate administrativo: ':'Selección provisional: ')+rep.selection+'\nTipo: '+rep.selection_type+'\nConfianza: '+rep.confidence+'\nEstado: '+rep.evidence_state+'\n\nCarencias:\n'+Object.entries(rep.missing_evidence).map(([team,gaps])=>team+': '+gaps.join('; ')).join('\n')+'\n\nControles pendientes: '+Object.values(rep.controls_R33_R34).filter(v=>v!=='COMPLETADA').length+'\n\n'+(rep.tie_break_explanation||''));
+  show((id?'Predicción congelada · ID '+id+'\n':'')+(rep.selection_basis==='CIPI'?'Dirección CIPI: ':rep.tie_break_explanation?'Desempate administrativo: ':'Selección provisional: ')+rep.selection+'\nTipo: '+rep.selection_type+'\nConfianza: '+rep.confidence+'\nEstado: '+rep.evidence_state+'\n\nCarencias:\n'+Object.entries(rep.missing_evidence).map(([team,gaps])=>team+': '+gaps.join('; ')).join('\n')+'\n\nControles pendientes: '+Object.values(rep.controls_R33_R34).filter(v=>v!=='COMPLETADA').length+'\n\n'+(rep.tie_break_explanation||''));
   if(rep.identity_release){
     const gate=rep.identity_release;
     let summary='T9 · '+gate.status+' · '+gate.reason+'\nElección por '+rep.selection_basis+'.';
@@ -87,6 +87,21 @@ function renderReport(rep,id){
   }
   if(rep.multisource) renderSources(rep.multisource);
   if(rep.source_network) renderNetwork(rep.source_network);
+  if(rep.cipi_review){
+    const c=rep.cipi_review;
+    const box=document.createElement('details'), summary=document.createElement('summary');
+    summary.textContent='T4–T7 · Evidencia y pruebas CIPI'; box.append(summary);
+    const line=t=>{const p=document.createElement('p');p.textContent=t;box.append(p);};
+    line('Series con cobertura completa A/B: '+c.documented_series.join(' / '));
+    if(c.pending_steps.length)line('Cierres pendientes: '+c.pending_steps.join(', '));
+    if(c.reason)line(c.reason);
+    if(c.side)line('Dirección: '+c.side+' · '+(c.survives?'conservada':'sensible a la prueba'));
+    for(const [i,m] of c.families.entries()){
+      line('Equipo '+['A','B'][i]+' · '+Object.entries(m).map(([k,v])=>k+' '+(typeof v==='number'?v.toFixed(2):v?'compatible':'sin compatibilidad')).join(' · '));
+    }
+    for(const t of c.trials)line('Serie '+t.series+' · retirada '+(t.withdrawal||'sin dirección')+' · escenario adverso '+(t.adverse||'sin dirección'));
+    $('result').append(box);
+  }
   if(rep.osint) renderContext(rep.osint);
   if(rep.audit) renderAudit(rep.audit);
   if(rep.research) renderEvidence(rep.research);
@@ -331,8 +346,8 @@ function renderNetwork(network){
   }
   for(const f of network.regional){
     const d=document.createElement('details');box.append(d);text(d,'summary',f.name+' · '+f.state+' · '+f.items.length+' titulares relacionados');
-    link(d,f.url,'Boletín');text(d,'p','Consulta: '+f.checked);
-    for(const item of f.items){link(d,item.url,item.title);text(d,'p',item.published+' · '+(f.before?'PREPARTIDO':'RETROSPECTIVA'));}
+    link(d,f.url,'Boletín');text(d,'p','Consulta: '+(f.checked||'sin captura'));
+    for(const item of f.items){link(d,item.url,item.title+(item.duplicate?' · duplicado':''));text(d,'p',item.published+' · '+(f.before?'PREPARTIDO':'RETROSPECTIVA'));}
   }
   text(box,'p','Las menciones regionales quedan por validar. La concordancia del marcador no verifica el K-D individual ni una causa táctica.');
   $('result').append(box);

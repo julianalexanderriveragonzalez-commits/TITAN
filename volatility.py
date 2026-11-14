@@ -44,7 +44,11 @@ def objections(report):
                 target.append({'text':row['team']+' vs. '+row['opponent']+' · marcador HLTV incompatible','source':row['url']})
     n=report['casefile']['observations_at_cutoff']
     stress=report['robustness']
-    if not stress['side']:
+    formal=report.get('cipi_review',{})
+    if formal.get('side') and not conflicts:
+        strongest=('La dirección depende de repetir la recuperación tras perder la apertura en un contexto comparable.'
+                   if formal['survives'] else 'Al retirar o invertir evidencia, la dirección CIPI pierde respaldo.')
+    elif not stress['side']:
         strongest='El indicador empató; la selección fue administrativa.'
     elif conflicts:
         strongest='Discrepancia documental al corte: '+conflicts[0]['text']+'. Su efecto deportivo queda por determinar.'
@@ -66,6 +70,9 @@ def objections(report):
     reasons.extend(step + ' pendiente de autorización.' for step in pending_steps)
     if not assessed:
         reasons.append('Falta una prueba de sensibilidad del indicador o un empate documentado.')
+    if conflicts and formal.get('side'):
+        assessed=False
+        reasons.append('Hay discrepancias prepartido que requieren resolución.')
     if not assessed:
         conclusion = 'REVISIÓN INCOMPLETA'
     elif pending_steps:

@@ -306,6 +306,7 @@ def finalize_review(report):
     if sensitive and not authorized:
         report['confidence'] = 'MUY BAJA'
     if authorized:
+        report['tie_break_explanation'] = None
         rationale = f'La dirección ciega {side} se conservó en T7 y su identidad quedó verificada en T9.'
         report.update(selection_type='DIRECCIÓN CIPI AUTORIZADA',
                       evidence_state='VENTAJA CONDICIONAL',
