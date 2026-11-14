@@ -27,6 +27,7 @@ function renderReport(rep,id){
     line.textContent='Puntuación ciega · Equipo A: '+blind.scores.A+' · Equipo B: '+blind.scores.B+' · '+(blind.sporting_side?'Indicador favorable a '+blind.sporting_side:'Empate deportivo');
     $('result').append(line);
   }
+  if(rep.robustness) renderRobustness(rep.robustness,rep.tasks.T7_robustez);
   if(rep.identity) renderIdentity(rep.identity);
   if(rep.window){
     const w=rep.window, el=document.createElement('p');
@@ -261,7 +262,7 @@ function renderCasefile(report){
       add(metrics,'p',team+' · '+nick+' · Diferencial K-D por serie: '+(v.series?v.minimum+' a '+v.maximum:'sin muestra')+' · '+v.series+'/5.');
     }
     const a=report.workflow.adverse;
-    if(a)add(box,'p','Escenario hipotético: cambiar una victoria por derrota el '+a.changed_date.slice(0,10)+'. Margen experimental del seleccionado: '+a.margin+'.');
+
   }
   $('result').append(box);
 }
@@ -287,4 +288,20 @@ function renderNetwork(network){
   }
   text(box,'p','Las menciones regionales quedan por validar. La concordancia del marcador no verifica el K-D individual ni una causa táctica.');
   $('result').append(box);
+}
+
+function renderRobustness(t,status){
+  const d=document.createElement('details');
+  const el=(tag,value)=>{const n=document.createElement(tag);n.textContent=value;d.append(n);};
+  el('summary','T7 · Robustez del indicador provisional');
+  el('p','Autorización formal: '+status+' · depende de T6.');
+  if(!t.side){el('p','Empate inicial. El desempate administrativo carece de dirección deportiva para probar.');}
+  else{
+    const ref=r=>(r.shared?'Ambos equipos':'Equipo '+r.team)+' · '+(r.group==='series'?'serie':'mecanismo')+' '+r.index+' · '+r.date.slice(0,10);
+    const result=m=>m>0?'conserva la dirección':m<0?'invierte la dirección':'empata';
+    el('p','Equipo '+t.side+' · Margen inicial '+t.base_margin+' · conserva la dirección en '+t.stable+'/'+t.withdrawals.length+' retiradas.');
+    for(const r of t.most_supportive)el('p','Mayor respaldo: '+ref(r)+' · al retirarlo: '+r.margin+' ('+result(r.margin)+').');
+    if(t.adverse)el('p','Escenario hipotético: invertir la evidencia en '+ref(t.adverse)+' · margen '+t.adverse.adverse_margin+' ('+result(t.adverse.adverse_margin)+').');
+  }
+  $('result').append(d);
 }

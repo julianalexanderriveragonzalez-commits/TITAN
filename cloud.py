@@ -187,7 +187,7 @@ def app(environ, start_response):
                 report['controls_R33_R34'] = {k:v['estado'] for k,v in diagnostics['controls'].items()}
                 report['casefile'] = build_casefile(report, evidence)
                 report['tasks']['T5_fichas_piso'] = report['casefile']['status']
-                report['tasks']['T7_robustez'] = 'PARCIAL' if diagnostics['withdrawals'][1] else 'BLOQUEADA'
+                # Formal T7 remains gated by T6; the proxy diagnostic is independently visible.
                 report['workflow'] = workflow(report,payload)
                 report['methodology_notes'].append('Las fichas consultadas después del corte solo se usan para revisión retrospectiva.')
 

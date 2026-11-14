@@ -100,18 +100,10 @@ def run(report,payload,evidence):
     cutoff=parse_dt(payload['match']['cutoff'])
     sheets=blind_sheets(evidence,names,cutoff)
     stats={slot:indicators(team) for slot,team in sheets.items()}
-    blind_teams = [blind_evidence(payload['teams'][n], cutoff) for n in names]
-    scores=[_score_team(t,cutoff)[0] for t in blind_teams]
-    direction=lambda x:(x>0)-(x<0)
-    base=direction(scores[0]-scores[1])
-    retained=trials=0
-    for i,n in enumerate(names):
-        data=blind_teams[i]
-        for j in range(len(data['series'])):
-            revised=dict(data,series=data['series'][:j]+data['series'][j+1:])
-            pair=scores.copy();pair[i]=_score_team(revised,cutoff)[0]
-            trials+=1
-            retained+=direction(pair[0]-pair[1])==base
+    stress=report['robustness']
+    trials=len(stress['withdrawals'])
+    retained=stress['stable']
+    base=stress['side']
     count=lambda k:sum(v['counts'].get(k,0) for v in stats.values())
     samples=sum(min(5,len({r['source'] for r in rows})) for t in stats.values() for rows in t['players'].values())
     conflicts=sum(t['conflict_count']+sum(s.get('verification',{}).get('state')=='CONTRADICCIÓN' for s in t['series']) for t in sheets.values())

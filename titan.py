@@ -142,6 +142,54 @@ def _score_team(team: dict[str, Any], cutoff: datetime) -> tuple[float, list[str
     return (0.5*form + 0.5*causal), notes, missing, len(usable)
 
 
+def robustness(data, cutoff):
+    """Perturb only the observations actually used by the original blind score."""
+    names=[data['match']['team_a'],data['match']['team_b']]
+    teams=[blind_evidence(data['teams'][n], cutoff) for n in names]
+    groups={}
+    for side,name in enumerate(names):
+        for group,limit in [('series',5),('mechanisms',10)]:
+            rows,_=window_rows(data['teams'][name].get(group,[]),cutoff,group=='series')
+            teams[side][group]=teams[side][group][:limit]
+            for i,row in enumerate(rows[:limit]):
+                # A shared BO3 carries two observations; perturb it only once.
+                key=(group,str(row.get('id') or row.get('source')),parse_dt(row['date']).isoformat())
+                if group=='mechanisms':key+=(side,i)
+                groups.setdefault(key,[]).append((side,group,i))
+    def margin(pair):
+        return round(_score_team(pair[0],cutoff)[0]-_score_team(pair[1],cutoff)[0],6)
+    base=margin(teams)
+    sign=1 if base>0 else -1 if base<0 else 0
+    out={'base_margin':abs(base),'side':'A' if sign==1 else 'B' if sign==-1 else None,
+         'withdrawals':[],'most_supportive':[],'adverse':None,'stable':0}
+    if not sign:return out
+    for refs in groups.values():
+        margins=[]
+        for flip in (False,True):
+            pair=[{k:list(rows) for k,rows in t.items()} for t in teams]
+            for side,group,i in refs:
+                row=pair[side][group][i]
+                if not flip:
+                    pair[side][group].pop(i)
+                elif group=='series':
+                    pair[side][group][i]=dict(row,result='L' if row['result']=='W' else 'W')
+                else:
+                    pair[side][group][i]=dict(row,score=-row['score'])
+            margins.append(round(sign*margin(pair),6))
+        side,group,i=refs[0]
+        trial={'group':group,'team':'A' if side==0 else 'B','index':i+1,'shared':len(refs)>1,
+               'date':teams[side][group][i]['date'],'margin':margins[0],'adverse_margin':margins[1]}
+        out['withdrawals'].append(trial)
+    trials=out['withdrawals']
+    out['stable']=sum(r['margin']>0 for r in trials)
+    if trials:
+        low=min(r['margin'] for r in trials)
+        out['most_supportive']=[r for r in trials if r['margin']==low and low<abs(base)]
+        worst=min(trials,key=lambda r:r['adverse_margin'])
+        if worst['adverse_margin']<abs(base):out['adverse']=worst
+    return out
+
+
 def analyze(data: dict[str, Any]) -> dict[str, Any]:
     """Deterministic locked pre-match report. Never uses later match results."""
     matchup = data['match']
@@ -193,6 +241,7 @@ def analyze(data: dict[str, Any]) -> dict[str, Any]:
             'Los datos posteriores al corte nunca se incorporan al cálculo prepartido.'
         ]
     }
+    report['robustness'] = robustness(data,cutoff)
     report['input_sha256'] = hashlib.sha256(json.dumps(data, sort_keys=True,ensure_ascii=False).encode()).hexdigest()
     return report
 

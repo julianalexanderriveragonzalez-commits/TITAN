@@ -54,22 +54,8 @@ def build_casefile(report, evidence):
 
 def workflow(report, payload):
     """Run adverse sensitivity on the same blind proxy used for the selection."""
-    from titan import blind_evidence, _score_team
-    cutoff=parse_dt(report['match']['cutoff'])
-    names=[report['match']['team_a'],report['match']['team_b']]
-    teams=[blind_evidence(payload['teams'][n],cutoff) for n in names]
-    scores=[_score_team(t,cutoff)[0] for t in teams]
-    side=0 if scores[0]>scores[1] else 1
-    scenarios=[]
-    if scores[0]!=scores[1]:
-        for i,row in enumerate(teams[side]['series'][:5]):
-            if row['result']!='W':
-                continue
-            trial=dict(teams[side],series=list(teams[side]['series']))
-            trial['series'][i]=dict(row,result='L')
-            margin=_score_team(trial,cutoff)[0]-scores[1-side]
-            scenarios.append({'changed_date':row['date'],'margin':round(margin,6)})
-    worst=min(scenarios,key=lambda s:s['margin'],default=None)
+    adverse=report['robustness']['adverse']
+    worst={'changed_date':adverse['date'],'margin':adverse['adverse_margin']} if adverse else None
     evidence_gap=report['casefile']['missing']
     objections=[]
     if report['multisource']['confirmed_before']<report['casefile']['series_count']:
@@ -77,7 +63,7 @@ def workflow(report, payload):
     if report['casefile']['observations_at_cutoff']<50:
         objections.append('La muestra individual prepartido es insuficiente.')
     if worst and worst['margin']<=0:
-        objections.append('Una victoria convertida en derrota elimina o invierte la dirección del indicador.')
+        objections.append('La inversión de una observación elimina o invierte la dirección del indicador.')
     if not objections:
         objections.append('Transferibilidad causal pendiente de demostración.')
     phases=[
@@ -87,7 +73,7 @@ def workflow(report, payload):
           ('T4_osint','Contexto público',', '.join(report['osint']['pending'])),
           ('T5_fichas_piso','Expediente y transferibilidad',' · '.join(evidence_gap))]),
         ('Evaluación ciega',[('T6_cipi_ciego','CIPI ciego',' '.join(report['casefile']['t6_blockers'])),
-          ('T7_robustez','Robustez','Retirada individual y sensibilidad hipotética del indicador.'),
+          ('T7_robustez','Robustez','Diagnóstico del indicador provisional. T7 formal requiere una dirección CIPI autorizada en T6.'),
           ('T8_contradicciones','Contradicción y volatilidad',' '.join(objections))]),
         ('Resolución',[('T9_desbloqueo_identidad','Contraste de identidad','La liberación formal depende del cerrojo de evidencia.'),
           ('T10_veredicto','Veredicto',report['selection_type']+' · '+report['confidence']),
