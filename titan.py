@@ -307,8 +307,15 @@ def finalize_review(report):
         seed = hashlib.sha256(cutoff.isoformat().encode()).digest()
         selected_side = 'A' if seed[0] % 2 == 0 else 'B'
     report['selection'] = names[selected_side]
+    if match.get('format') == 'BO2' and blind['administrative'] and not authorized:
+        report['selection'] = 'EMPATE'
+        report['tie_break_explanation'] = 'BO2: empate provisional por ausencia de dirección deportiva; no constituye una probabilidad calibrada.'
     report['selection_basis'] = ('CIPI' if authorized else 'DESEMPATE ADMINISTRATIVO'
                                  if blind['administrative'] else 'INDICADOR PROVISIONAL')
+    if match.get('format') == 'BO2' and report['selection'] == 'EMPATE':
+        report['selection_basis'] = 'EMPATE PROVISIONAL SIN DIRECCIÓN'
+    if match.get('format','BO3') != 'BO3':
+        report['methodology_notes'].append('Formato objetivo '+match['format']+': antecedentes BO3 como indicador provisional; transferibilidad específica no validada.')
     if sensitive and not authorized:
         report['confidence'] = 'MUY BAJA'
     if authorized:
