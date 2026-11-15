@@ -65,6 +65,56 @@ def sheet(doc, path, checked):
                     if re.fullmatch(r'/team/\d+/[a-z0-9-]+',a.get('href',''))})
 
 
+
+def api_fixture(match, required, cutoff, bucket):
+    """Authorized calendar API; token stays server-side and never enters evidence."""
+    import os
+    from urllib.parse import urlencode
+    token = os.environ.get('PANDASCORE_TOKEN','').strip()
+    if not token:
+        logging.warning('T1 PandaScore: token not configured')
+        return None
+    endpoint = 'https://api.pandascore.co/csgo/matches'
+    params = {'range[scheduled_at]':(cutoff-timedelta(days=1)).isoformat()+','+(cutoff+timedelta(days=1)).isoformat(), 'per_page':100}
+    found = {}
+    try:
+        for page in range(1,6):
+            query = urlencode(dict(params,page=page))
+            req = Request(endpoint+'?'+query,headers={'Authorization':'Bearer '+token,'Accept':'application/json'})
+            with urlopen(req,timeout=8) as response:
+                raw = response.read(3_000_001)
+            if len(raw)>3_000_000:
+                raise ValueError('Response too large')
+            rows = json.loads(raw)
+            if not isinstance(rows,list):
+                raise ValueError('Unexpected response')
+            for row in rows:
+                names = [v.get('opponent',{}).get('name','') for v in row.get('opponents',[])]
+                if len(names)!=2 or {key(n) for n in names}!=required:
+                    continue
+                kickoff = parse_dt(row['scheduled_at'])
+                fmt = 'BO'+str(row.get('number_of_games'))
+                if kickoff!=cutoff or fmt not in FORMATS or row.get('status') in ('canceled','cancelled','postponed'):
+                    continue
+                event = ' / '.join(v.get('name','') for v in (row.get('league') or {},row.get('serie') or {},row.get('tournament') or {}) if v.get('name'))
+                ident = row.get('id')
+                if not event or not isinstance(ident,int):
+                    continue
+                found[ident] = dict(names=names,source=endpoint+'/'+str(ident),tournament=event,format=fmt,
+                                    kickoff=kickoff.isoformat(),checked=datetime.now(timezone.utc).isoformat(),
+                                    rosters={},history={},team_ids={},provider='PandaScore',provider_id=ident)
+            if len(rows)<100:
+                break
+        else:
+            logging.warning('T1 PandaScore: pagination limit reached; uniqueness not established')
+            return None
+    except (OSError,ValueError,TypeError,KeyError,AttributeError) as exc:
+        logging.warning('T1 PandaScore: %s',type(exc).__name__)
+        return None
+    logging.warning('T1 PandaScore candidates=%s',len(found))
+    return next(iter(found.values())) if len(found)==1 else None
+
+
 def lookup(match):
     cutoff = parse_dt(match['cutoff'])
     names = [match['team_a'],match['team_b']]
@@ -151,7 +201,9 @@ def lookup(match):
     with ThreadPoolExecutor(max_workers=4) as pool:
         alternatives = [f for f in pool.map(alternate_sheet,paths[:12]) if f]
     logging.warning('T1 BO3.gg candidates=%s verified=%s',len(paths),len(alternatives))
-    return alternatives[0] if len(alternatives)==1 else None
+    if len(alternatives)>1:
+        return None
+    return alternatives[0] if alternatives else api_fixture(match,required,cutoff,bucket)
 
 
 def completed_score(fmt, scores):
