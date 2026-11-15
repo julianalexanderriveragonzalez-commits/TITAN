@@ -172,8 +172,8 @@ def app(environ, start_response):
                     external = open_fixture.lookup(match)
                     if not external:
                         reason = 'No se pudo verificar un encuentro único. Usa los nombres oficiales (sin traducción), verifica la hora de Colombia o aporta la ficha HLTV. No se emitirá una predicción sobre un partido no identificado.'
-                    elif external['format'] != 'BO3':
-                        reason = 'Encuentro localizado en '+external['tournament']+'. El formato '+external['format']+' requiere una evaluación específica. El modelo actual evalúa BO3.'
+                    elif external['format'] not in ('BO1','BO2','BO3','BO5','BO7'):
+                        reason = 'Encuentro localizado en '+external['tournament']+'. El formato '+external['format']+' requiere una evaluación específica. Formato no reconocido por el modelo.'
                     else:
                         reason = None
                     if reason:
@@ -182,7 +182,10 @@ def app(environ, start_response):
                     # Canonical names must follow the validated fixture into history and verdict.
                     for field in ('team_a','team_b'):
                         match[field] = next(n for n in external['names'] if open_fixture.key(n)==open_fixture.key(match[field]))
+                    match['format'] = external['format']
                     payload['teams'] = open_fixture.histories(external,match)
+            if evidence and evidence.get('format'):
+                payload['match']['format'] = evidence['format']
             report = prepare_review(payload)
             report['tasks']['T2_ventana_15_dias'] = 'PARCIAL'
             if evidence:
@@ -228,7 +231,7 @@ def app(environ, start_response):
                 if not missing and not pending_engines:
                     comparison = compare_portfolios(groups,[report['osint']['rest_hours'][n] for n in names])
                 comparison['pending_engines']=pending_engines
-                if comparison['side']:
+                if comparison['side'] and payload['match'].get('format','BO3') == 'BO3':
                     motor_findings['CIPI']=dict(finding='COMPLETADA',detail=comparison['reason'],
                                                 data={'families':comparison['families'],'survives':comparison['survives']})
                 report['engines']=chain(motor_findings)
@@ -236,6 +239,10 @@ def app(environ, start_response):
                 comparison['pending_steps'] = missing
                 comparison['sources'] = [[{'series':r['id'],'urls':r['sources']} for r in g] for g in groups]
                 comparison['documented_series'] = [len(g) for g in groups]
+                if payload['match'].get('format','BO3') != 'BO3':
+                    comparison['side'] = None
+                    comparison['survives'] = False
+                    comparison['reason'] = 'Transferibilidad al formato objetivo pendiente de validación.'
                 report['cipi_review'] = comparison
                 if comparison['side']:
                     report['tasks']['T6_cipi_ciego'] = 'COMPLETADA'
@@ -319,7 +326,7 @@ def app(environ, start_response):
             with sqlite3.connect(db_path(), timeout=10) as db:
                 row = db.execute('SELECT report_json,actual_winner,created_utc FROM browser_predictions WHERE id=? AND owner=?',(ident,owner)).fetchone()
                 if not row: return json_reply(start_response,'404 Not Found',{'error':'Registro no encontrado'})
-                r=json.loads(row[0]); allowed=(r['match']['team_a'],r['match']['team_b'])
+                r=json.loads(row[0]); allowed=(r['match']['team_a'],r['match']['team_b']) + (('EMPATE',) if r['match'].get('format')=='BO2' else ())
 
                 if row[1] is not None:
                     return json_reply(start_response,'409 Conflict',{'error':'Este resultado ya fue registrado y es inmutable'})
