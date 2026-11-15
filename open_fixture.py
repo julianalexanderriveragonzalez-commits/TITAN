@@ -1,5 +1,6 @@
 """Resolve public HLTV fixtures without an organizer or team directory."""
 import json
+import logging
 import unicodedata
 import re
 from concurrent.futures import ThreadPoolExecutor
@@ -22,7 +23,7 @@ SNAPSHOT = Path(__file__).with_name('nodwin_fixture.json')
 
 def key(name):
     raw = ''.join(c for c in unicodedata.normalize('NFKD', name.casefold()) if c.isalnum())
-    return {'fazeclan':'faze', 'fnaticesports':'fnatic', 'natusvincere':'navi',
+    return {'fazeclan':'faze', 'perturbar':'faze', 'fase':'faze', 'fnaticesports':'fnatic', 'natusvincere':'navi',
             'teamvitality':'vitality', 'g2esports':'g2', 'teamfalcons':'falcons',
             'betboomteam':'betboom', 'futesports':'fut'}.get(raw, raw)
 
@@ -85,13 +86,14 @@ def lookup(match):
             for path in listing.xpath('//a/@href'):
                 if re.fullmatch(PATH,path) and all(key(n) in key(path.split('/')[-1]) for n in names):
                     candidates.append(path)
-        except ERRORS:
-            pass
+        except ERRORS as exc:
+            logging.warning('T1 HLTV listing: %s', exc)
     verified = []
     for path in list(dict.fromkeys(candidates))[:24]:
         try:
             record = sheet(read(path,bucket),path,datetime.now(timezone.utc).isoformat())
-        except ERRORS:
+        except ERRORS as exc:
+            logging.warning('T1 HLTV sheet %s: %s', path, exc)
             continue
         if matches(record):
             verified.append(record)
@@ -101,7 +103,55 @@ def lookup(match):
         return None
     if matches(saved):
         return saved
-    return None
+    if url:
+        return None
+    def alternate(name):
+        slug = key(name)
+        try:
+            index = html.fromstring(second_source.fetch('/teams/'+second_source.ALIASES.get(slug,slug)+'/matches',bucket))
+            dates = {(cutoff+timedelta(days=i)).strftime('%d-%m-%Y') for i in (-1,0,1)}
+            return [p for p in dict.fromkeys(index.xpath('//a[starts-with(@href,"/matches/")]/@href'))
+                    if re.fullmatch(r'/matches/[\w-]+',p) and any(p.endswith('-'+d) for d in dates)]
+        except ERRORS as exc:
+            logging.warning('T1 BO3.gg index %s: %s',slug,exc)
+            return []
+    def alternate_sheet(path):
+        try:
+            doc = html.fromstring(second_source.fetch(path,bucket))
+            for raw in doc.xpath('//script[@type="application/ld+json"]/text()'):
+                data = json.loads(raw)
+                events = data if isinstance(data,list) else data.get('@graph',[data])
+                for event in events:
+                    if not isinstance(event,dict) or event.get('@type')!='SportsEvent':
+                        continue
+                    sides = event.get('name','').split(' vs ')
+                    if len(sides)!=2 or {key(n) for n in sides}!=required or event.get('url')!=second_source.HOST+path:
+                        continue
+                    kickoff = parse_dt(event['startDate'])
+                    context = str(event.get('description',''))+' '+' '.join(e.text_content() for e in doc.xpath('//*[contains(@class,"match-format") or contains(@class,"best-of")]'))
+                    formats = set(re.findall(r'\b(?:bo\s*|best.of.)([12357])\b',context,re.I))
+                    if len(formats)!=1 or kickoff!=cutoff:
+                        logging.warning('T1 BO3.gg mismatch %s kickoff=%s formats=%s',path,kickoff,sorted(formats))
+                        continue
+                    tournament = event.get('superEvent') or event.get('eventSeries')
+                    if isinstance(tournament,dict):
+                        tournament = tournament.get('name')
+                    if not isinstance(tournament,str) or not tournament.strip():
+                        labels = list(dict.fromkeys(v.strip() for v in doc.xpath('//a[contains(@href,"/tournaments/")]/text()') if v.strip()))
+                        tournament = labels[0] if len(labels)==1 else None
+                    if tournament:
+                        return dict(names=sides,source=event['url'],tournament=tournament,format='BO'+formats.pop(),
+                                    kickoff=kickoff.isoformat(),checked=datetime.now(timezone.utc).isoformat(),
+                                    rosters={},history={},team_ids={})
+        except (OSError,ValueError,KeyError,TypeError,IndexError,AttributeError) as exc:
+            logging.warning('T1 BO3.gg sheet %s: %s',path,exc)
+        return None
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        paths = list(dict.fromkeys(p for group in pool.map(alternate,names) for p in group))
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        alternatives = [f for f in pool.map(alternate_sheet,paths[:12]) if f]
+    logging.warning('T1 BO3.gg candidates=%s verified=%s',len(paths),len(alternatives))
+    return alternatives[0] if len(alternatives)==1 else None
 
 
 def histories(fixture, match):
