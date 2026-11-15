@@ -1,5 +1,6 @@
 """Resolve public HLTV fixtures without an organizer or team directory."""
 import json
+import unicodedata
 import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -20,7 +21,10 @@ SNAPSHOT = Path(__file__).with_name('nodwin_fixture.json')
 
 
 def key(name):
-    return ''.join(c for c in name.casefold() if c.isalnum())
+    raw = ''.join(c for c in unicodedata.normalize('NFKD', name.casefold()) if c.isalnum())
+    return {'fazeclan':'faze', 'fnaticesports':'fnatic', 'natusvincere':'navi',
+            'teamvitality':'vitality', 'g2esports':'g2', 'teamfalcons':'falcons',
+            'betboomteam':'betboom', 'futesports':'fut'}.get(raw, raw)
 
 
 @lru_cache(maxsize=96)
@@ -83,13 +87,18 @@ def lookup(match):
                     candidates.append(path)
         except ERRORS:
             pass
-    for path in list(dict.fromkeys(candidates))[:6]:
+    verified = []
+    for path in list(dict.fromkeys(candidates))[:24]:
         try:
             record = sheet(read(path,bucket),path,datetime.now(timezone.utc).isoformat())
         except ERRORS:
             continue
         if matches(record):
-            return record
+            verified.append(record)
+    if len(verified) == 1:
+        return verified[0]
+    if len(verified) > 1:
+        return None
     if matches(saved):
         return saved
     return None
