@@ -46,3 +46,18 @@ class FixtureTests(unittest.TestCase):
                 self.assertNotEqual(row['source'], self.saved['source'])
         self.assertEqual(sum(r['result']=='W' for r in teams['33']['series']),3)
         self.assertFalse(any(r['result']=='W' for r in teams['Genone']['series']))
+
+    def test_canonical_aliases(self):
+        self.assertEqual(fixtures.key('FaZe Clan'), fixtures.key('FaZe'))
+        self.assertEqual(fixtures.key('Natus Vincere'), fixtures.key('NAVI'))
+        self.assertNotEqual(fixtures.key('Perturbar'), fixtures.key('FaZe'))
+
+    def test_ambiguous_matches_are_not_selected(self):
+        paths=['/matches/9876543/alpha-vs-beta-regional','/matches/9876544/alpha-vs-beta-regional']
+        calendar=html.fromstring('<main>'+''.join('<a href="'+p+'">fixture</a>' for p in paths)+'</main>')
+        page=html.fromstring('<main><div class="team1-gradient"><div class="teamName">Alpha</div></div>'
+            '<div class="team2-gradient"><div class="teamName">Beta</div></div><div class="timeAndEvent">'
+            '<div class="time" data-unix="1794681000000"></div><a href="/events/123/regional">Regional</a>'
+            '</div><div class="preformatted-text">Best of 3</div></main>')
+        with patch('open_fixture.read',side_effect=[calendar,page,page]):
+            self.assertIsNone(fixtures.lookup(dict(self.match,team_a='Alpha',team_b='Beta')))
