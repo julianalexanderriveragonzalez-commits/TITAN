@@ -114,8 +114,8 @@ def research(match):
     if len(candidates) != 1:
         raise ValueError('BLAST no confirmó ambos equipos y la hora exacta. Revisa la hora de Colombia.')
     target, fixture = candidates[0]
-    if fixture['type'] != 'BO3':
-        raise ValueError('El formato confirmado queda fuera del alcance BO3.')
+    if fixture['type'] not in ('BO1','BO2','BO3','BO5','BO7'):
+        raise ValueError('Formato confirmado no admitido.')
     teams, report = {}, {}
     for name, tid, html, paths_for_team, profile in zip(names,team_ids,pages,listed,paths):
         rosters = [r for r in records(html) if r.get('players') and isinstance(r.get('fromDate'),str) and r['fromDate'] <= now.date().isoformat() and not r.get('toDate')]
@@ -173,7 +173,7 @@ def research(match):
         if checked < cutoff and normalize(name) in lineups:
             report[name]['fixture_lineup_evidence'] = {
                 'players':lineups[normalize(name)], 'source':HOST+target, 'checked_at':checked.isoformat()}
-    return teams, {'source':HOST+target,'tournament':fixture['tournament']['name'],'stage':fixture['name'],'stage_format':(fixture.get('stage') or {}).get('format'),'modality':(fixture.get('metadata') or {}).get('modality'),'cutoff':cutoff.isoformat(),'retrieved':datetime.now(timezone.utc).isoformat(),'reconstructed':historical,'teams':report,'unavailable_pages':sum(item is None for item in details.values())}
+    return teams, {'format':fixture['type'],'source':HOST+target,'tournament':fixture['tournament']['name'],'stage':fixture['name'],'stage_format':(fixture.get('stage') or {}).get('format'),'modality':(fixture.get('metadata') or {}).get('modality'),'cutoff':cutoff.isoformat(),'retrieved':datetime.now(timezone.utc).isoformat(),'reconstructed':historical,'teams':report,'unavailable_pages':sum(item is None for item in details.values())}
 
 
 def automatic_input(match):
