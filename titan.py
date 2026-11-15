@@ -14,6 +14,11 @@ from pathlib import Path
 from typing import Any
 
 VERSION = 'TITAN-4.1-R3.4'
+FORMATS = frozenset(('BO1','BO2','BO3','BO5','BO7'))
+
+def valid_series_result(fmt, result):
+    return fmt in FORMATS and (result in ('W','L') or (fmt == 'BO2' and result == 'D'))
+
 CONTROL_NAMES = [
     'coherencia_direccional', 'piso_colectivo_cce', 'transferibilidad',
     'rutas_bo3', 'estres_competitivo', 'robustez_retirada',
@@ -52,7 +57,7 @@ def window_rows(rows, cutoff, series=False):
                 reason = 'fin de serie incompatible'
         except (AttributeError, KeyError, TypeError, ValueError):
             reason = 'fecha inválida'
-        if not reason and series and (row.get('format') != 'BO3' or row.get('result') not in ('W', 'L')):
+        if not reason and series and not valid_series_result(row.get('format'), row.get('result')):
             reason = 'formato o resultado inválido'
         if not reason and not row.get('source'):
             reason = 'sin fuente'
@@ -77,7 +82,7 @@ def blind_evidence(team, cutoff=None):
     """Only the fields consumed by scoring cross the identity boundary."""
     result = {}
     for group, field, allowed in (
-        ('series', 'result', ('W', 'L')),
+        ('series', 'result', ('W', 'L', 'D')),
         ('mechanisms', 'score', (-1, 0, 1)),
     ):
         rows = []
@@ -92,7 +97,7 @@ def blind_evidence(team, cutoff=None):
             entry = {'date': date, 'source': bool(row.get('source')),
                      field: row.get(field) if row.get(field) in allowed else None}
             if group == 'series':
-                entry['format'] = 'BO3' if row.get('format') == 'BO3' else None
+                entry['format'] = row.get('format') if row.get('format') in FORMATS else None
             rows.append(entry)
         result[group] = rows
     return result
@@ -125,18 +130,18 @@ def _score_team(team: dict[str, Any], cutoff: datetime) -> tuple[float, list[str
         except (ValueError, KeyError) as e:
             missing.append(f'Serie con fecha inválida: {e}')
             continue
-        if cutoff - timedelta(days=15) <= when < cutoff and s.get('format') == 'BO3':
-            if s.get('result') in ('W', 'L') and s.get('source'):
+        if cutoff - timedelta(days=15) <= when < cutoff and s.get('format') in FORMATS:
+            if valid_series_result(s.get('format'), s.get('result')) and s.get('source'):
                 series.append(s)
             else:
                 missing.append('Serie sin resultado o fuente verificable')
     series.sort(key=lambda v: v['date'], reverse=True)
     usable = series[:5]
     if len(usable) < 5:
-        missing.append(f'Solo {len(usable)}/5 series BO3 documentadas en ventana')
-    # Equal weights for every recent BO3; ONLY a weak proxy for comparative form.
-    form = sum((1 if s['result']=='W' else -1) for s in usable) / max(5, len(usable))
-    notes.append(f'{len(usable)}/5 BO3 recientes documentadas; balance normalizado {form:+.2f}')
+        missing.append(f'Solo {len(usable)}/5 series documentadas en ventana')
+    # Equal weights for every recent series; ONLY a weak proxy for comparative form.
+    form = sum((1 if s['result']=='W' else -1 if s['result']=='L' else 0) for s in usable) / max(5, len(usable))
+    notes.append(f'{len(usable)}/5 series recientes documentadas; balance normalizado {form:+.2f}')
 
     # Mechanism assessments MUST be supplied with sources and are explicitly bounded.
     mechanisms = team.get('mechanisms', [])
@@ -179,7 +184,7 @@ def robustness(data, cutoff):
                 if not flip:
                     pair[side][group].pop(i)
                 elif group=='series':
-                    pair[side][group][i]=dict(row,result='L' if row['result']=='W' else 'W')
+                    pair[side][group][i]=dict(row,result='L' if row['result']=='W' else 'W' if row['result']=='L' else ('L' if side==0 and sign>0 or side==1 and sign<0 else 'W'))
                 else:
                     pair[side][group][i]=dict(row,score=-row['score'])
             margins.append(round(sign*margin(pair),6))
@@ -315,7 +320,7 @@ def finalize_review(report):
     if match.get('format') == 'BO2' and report['selection'] == 'EMPATE':
         report['selection_basis'] = 'EMPATE PROVISIONAL SIN DIRECCIÓN'
     if match.get('format','BO3') != 'BO3':
-        report['methodology_notes'].append('Formato objetivo '+match['format']+': antecedentes BO3 como indicador provisional; transferibilidad específica no validada.')
+        report['methodology_notes'].append('Formato objetivo '+match['format']+': antecedentes de formatos admitidos como indicador provisional; transferibilidad específica no validada.')
     if sensitive and not authorized:
         report['confidence'] = 'MUY BAJA'
     if authorized:
