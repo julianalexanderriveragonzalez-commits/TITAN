@@ -171,7 +171,7 @@ def app(environ, start_response):
                 if evidence is None:
                     external = open_fixture.lookup(match)
                     if not external:
-                        reason = 'Partido pendiente de identificación. Revisa ambos nombres y la hora de Colombia, o pega la ficha exacta de HLTV. También puedes aportar evidencia en la entrada manual.'
+                        reason = 'No se pudo verificar un encuentro único. Usa los nombres oficiales (sin traducción), verifica la hora de Colombia o aporta la ficha HLTV. No se emitirá una predicción sobre un partido no identificado.'
                     elif external['format'] != 'BO3':
                         reason = 'Encuentro localizado en '+external['tournament']+'. El formato '+external['format']+' requiere una evaluación específica. El modelo actual evalúa BO3.'
                     else:
@@ -179,6 +179,9 @@ def app(environ, start_response):
                     if reason:
                         return json_reply(start_response, '409 Conflict' if path.endswith('freeze') else '200 OK',
                                           {'pending':True,'error':reason,'external_fixture':external})
+                    # Canonical names must follow the validated fixture into history and verdict.
+                    for field in ('team_a','team_b'):
+                        match[field] = next(n for n in external['names'] if open_fixture.key(n)==open_fixture.key(match[field]))
                     payload['teams'] = open_fixture.histories(external,match)
             report = prepare_review(payload)
             report['tasks']['T2_ventana_15_dias'] = 'PARCIAL'
