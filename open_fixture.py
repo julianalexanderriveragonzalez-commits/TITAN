@@ -11,7 +11,7 @@ from time import time
 from urllib.request import Request, urlopen
 
 from lxml import html
-from titan import parse_dt
+from titan import parse_dt, FORMATS
 import second_source
 from source_network import result_index, fetch as fetch_index
 
@@ -52,7 +52,7 @@ def sheet(doc, path, checked):
     for box in doc.xpath('//*[@data-past-matches-team]/*'):
         team = box.xpath('.//*[contains(@class,"past-matches-headline")]//a/text()')
         if team:
-            history[team[0]] = list(dict.fromkeys(box.xpath('.//td[@class="past-matches-map"]/div/a[translate(text(),"BO","bo")="bo3"]/@href')))[:5]
+            history[team[0]] = list(dict.fromkeys(box.xpath('.//td[@class="past-matches-map"]/div/a/@href')))[:5]
     for box in doc.xpath('//*[@class="lineup standard-box"]'):
         team = box.xpath('.//a[starts-with(@href,"/team/")]/text()')
         if team:
@@ -154,6 +154,19 @@ def lookup(match):
     return alternatives[0] if len(alternatives)==1 else None
 
 
+def completed_score(fmt, scores):
+    if fmt not in FORMATS or len(scores)!=2 or any(v<0 for v in scores):
+        return False
+    if fmt=='BO2':
+        return sum(scores)==2
+    target=int(fmt[2:])//2+1
+    return max(scores)==target and min(scores)<target
+
+
+def outcome(scores, side):
+    return 'D' if scores[0]==scores[1] else 'W' if scores[side]>scores[1-side] else 'L'
+
+
 def histories(fixture, match):
     names = [match['team_a'],match['team_b']]
     teams = {n:{'series':[],'mechanisms':[]} for n in names}
@@ -176,8 +189,7 @@ def histories(fixture, match):
             idx=[key(n) for n in sides].index(key(name))
             start=parse_dt(record['kickoff'])
             scores=[doc.xpath('//*[contains(@class,"team%d-gradient")]//*[@class="won" or @class="lost"]/text()'%(i+1)) for i in range(2)]
-            if (not all(scores) or sorted(int(s[0]) for s in scores) not in ([0,2],[1,2])
-                    or record['format']!='BO3' or not cutoff-timedelta(days=15)<=start<min(cutoff,parse_dt(record['checked']))
+            if (not all(scores) or not completed_score(record['format'],[int(s[0]) for s in scores]) or not cutoff-timedelta(days=15)<=start<min(cutoff,parse_dt(record['checked']))
                     or (parse_dt(record['checked'])>=cutoff and start.date()>=cutoff.date())):
                 return
             maps=[]
@@ -187,8 +199,8 @@ def histories(fixture, match):
                 if labels and len(results)==2 and all(v.text_content().strip().isdigit() for v in results):
                     pair=[int(v.text_content().strip()) for v in results]
                     maps.append({'map':labels[0].text_content().strip().lower(),'score':pair if idx==0 else pair[::-1]})
-            return name,dict(checked_at=record['checked'],maps=maps,id=path.split('/')[2],date=start.isoformat(),format='BO3',
-                             result='W' if int(scores[idx][0])==2 else 'L',source=record['source'],opponent=sides[1-idx])
+            return name,dict(checked_at=record['checked'],maps=maps,id=path.split('/')[2],date=start.isoformat(),format=record['format'],
+                             result=outcome([int(s[0]) for s in scores],idx),source=record['source'],opponent=sides[1-idx])
         except ERRORS:
             return
     items=[(name,path) for name in names for side,paths in fixture['history'].items() if key(name)==key(side) for path in paths]
@@ -256,10 +268,11 @@ def histories(fixture, match):
                 # Two played maps can also be an unfinished BO5.
                 context=' '.join(str(event.get(k,'')) for k in ('name','description'))
                 context+=' '+' '.join(e.text_content() for e in doc.xpath('//*[contains(@class,"match-format") or contains(@class,"best-of")]'))
-                if sorted(score) not in ([0,2],[1,2]) or not re.search(r'\b(?:bo\s*3|best.of.(?:3|three))\b',context,re.I):
+                formats=set(re.findall(r'\b(?:bo\s*|best.of.)([12357])\b',context,re.I))
+                if len(formats)!=1 or not completed_score('BO'+next(iter(formats)),score):
                     return
-                return dict(id=path,date=start.isoformat(),checked_at=checked.isoformat(),format='BO3',
-                            result='W' if wins==2 else 'L',source=event['url'],opponent=sides[1-side],maps=maps)
+                return dict(id=path,date=start.isoformat(),checked_at=checked.isoformat(),format='BO'+next(iter(formats)),
+                            result=outcome(score,0),source=event['url'],opponent=sides[1-side],maps=maps)
             except (OSError,ValueError,KeyError,IndexError,TypeError,StopIteration):
                 return
         dates=[(cutoff-timedelta(days=i)).strftime('%d-%m-%Y') for i in range(16)]
