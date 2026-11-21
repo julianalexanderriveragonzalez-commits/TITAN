@@ -9,6 +9,7 @@ from functools import lru_cache
 from pathlib import Path
 from time import time
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 
 from lxml import html
 from titan import parse_dt, FORMATS
@@ -108,6 +109,9 @@ def api_fixture(match, required, cutoff, bucket):
         else:
             logging.warning('T1 PandaScore: pagination limit reached; uniqueness not established')
             return None
+    except HTTPError as exc:
+        logging.warning('T1 PandaScore: HTTP %s',exc.code)
+        return None
     except (OSError,ValueError,TypeError,KeyError,AttributeError) as exc:
         logging.warning('T1 PandaScore: %s',type(exc).__name__)
         return None
