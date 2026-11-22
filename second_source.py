@@ -2,6 +2,7 @@
 import concurrent.futures
 import json
 import re
+import unicodedata
 from datetime import datetime, timezone
 from functools import lru_cache
 from time import time
@@ -15,13 +16,17 @@ ALIASES = {'mouz':'mouz-cs2','falcons':'falcons-esports','fut':'fut-cs2','betboo
            'nucleartigeres':'nuclear-tigeres'}
 NAMES = {'teamvitality':'vitality','teamfalcons':'falcons','futesports':'fut','betboomteam':'betboom','navi':'natusvincere','g2esports':'g2','teambetboom':'betboom','teammouz':'mouz','fantasma':'phantom',
          # Spanish browser translation of Nuclear TigeRES.
-         'tigrenuclearres':'nucleartigeres'}
+         'tigrenuclearres':'nucleartigeres', 'retraso':'lag',
+         'patrullamusculosa':'swolepatrol', 'leche':'milk',
+         'nuevemoscas':'ninefly', 'recuperar':'regain',
+         'jabalideiowa':'iowastormboar', 'flyquestrojo':'flyquestred',
+         'locura':'lunacy', 'mariposa':'butterfly', 'pordeterminar':'tbd'}
 TOKEN = re.compile(r'"(?:\\.|[^"\\])*"|Array\(\d+\)|\{\}|\[\]|[^,]+')
 PAIR = re.compile(r'(\w+):("(?:\\.|[^"\\])*"|[\w.-]+)')
 
 
 def norm(name):
-    name = re.sub('[^a-z0-9]', '', name.lower())
+    name = ''.join(c for c in unicodedata.normalize('NFKD', name.casefold()) if c.isalnum())
     return NAMES.get(name,name)
 
 

@@ -62,6 +62,12 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(fixtures.key('Tigre nuclear res'), fixtures.key('Nuclear TigeRES'))
         self.assertEqual(fixtures.second_source.norm('Tigre nuclear res'), 'nucleartigeres')
         self.assertEqual(fixtures.second_source.ALIASES['nucleartigeres'], 'nuclear-tigeres')
+        for translated,official in [('Retraso','LAG'),('Patrulla musculosa','Swole Patrol'),
+                                    ('Leche','Milk'),('Nueve Moscas','NineFly'),
+                                    ('recuperar','regain'),('Jabalí de Iowa','Iowa Stormboar'),
+                                    ('FlyQuest ROJO','FlyQuest RED'),('Locura','Lunacy')]:
+            self.assertEqual(fixtures.key(translated),fixtures.key(official),translated)
+            self.assertEqual(fixtures.second_source.norm(translated),fixtures.second_source.norm(official),translated)
 
     def test_translated_team_name_finds_official_hltv_calendar_slug(self):
         path='/matches/2400370/betclic-vs-nuclear-tigeres-nodwin-clutch-series-14'
@@ -114,6 +120,18 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual((result['format'],result['tournament']),('BO3','NODWIN Clutch Series 14'))
         self.assertEqual(result['provider'],'BO3.gg API')
         self.assertIn('coincidencias exactas=1',' '.join(diagnostics))
+
+    def test_bo3_api_resolves_spanish_browser_translations_from_fixture_list(self):
+        match=dict(team_a='Retraso',team_b='Patrulla musculosa',cutoff='2026-11-22T15:00:00-05:00')
+        row={'id':134737,'slug':'lag-gaming-vs-swole-patrol-22-11-2026','status':'upcoming',
+             'start_date':'2026-11-22T20:00:00+00:00','bo_type':3,
+             'team1':{'name':'LAG'},'team2':{'name':'Swole Patrol'},
+             'tournament':{'name':'CROSSFIRE Season 7'}}
+        payload={'total':{'count':1},'results':[row]}
+        with patch('open_fixture.urlopen',return_value=BytesIO(json.dumps(payload).encode())):
+            required={fixtures.key(match['team_a']),fixtures.key(match['team_b'])}
+            result=self.bo3_api(match,required,fixtures.parse_dt(match['cutoff']),[])
+        self.assertEqual(result['names'],['LAG','Swole Patrol'])
 
     def test_lookup_uses_bo3_calendar_before_blocked_html_sources(self):
         match=dict(team_a='Envy',team_b='SINNERS',cutoff='2026-11-22T11:00:00-05:00')

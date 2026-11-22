@@ -29,7 +29,12 @@ def key(name):
             'teamvitality':'vitality', 'g2esports':'g2', 'teamfalcons':'falcons',
             'betboomteam':'betboom', 'futesports':'fut', 'fantasma':'phantom',
             # Browser translation can reorder and translate the official team name.
-            'tigrenuclearres':'nucleartigeres'}.get(raw, raw)
+            'tigrenuclearres':'nucleartigeres', 'retraso':'lag',
+            'patrullamusculosa':'swolepatrol', 'leche':'milk',
+            'nuevemoscas':'ninefly', 'recuperar':'regain',
+            'jabalideiowa':'iowastormboar', 'flyquestrojo':'flyquestred',
+            'locura':'lunacy', 'mariposa':'butterfly',
+            'pordeterminar':'tbd'}.get(raw, raw)
 
 
 @lru_cache(maxsize=96)
