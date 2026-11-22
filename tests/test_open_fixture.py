@@ -100,6 +100,7 @@ class FixtureTests(unittest.TestCase):
             result=fixtures.lookup(match,diagnostics)
         self.assertEqual((result['names'],result['format']),(['Betclic','Nuclear TigeRES'],'BO3'))
         self.assertIn('ficha verificada',result['provider'])
+        self.assertEqual(result['history'],{})
         self.assertIn('Registro verificado de BO3.gg', ' '.join(diagnostics))
         with patch('open_fixture.read',side_effect=OSError('blocked')), \
              patch('second_source.fetch',side_effect=OSError('blocked')), \
