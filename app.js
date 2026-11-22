@@ -32,7 +32,7 @@ function renderReport(rep,id){
     const panel=document.createElement('details'),title=document.createElement('summary');
     title.textContent='Ficha del encuentro y antecedentes';panel.append(title);
     if(rep.verdict?.timing==='RETROSPECTIVO'){const note=document.createElement('p');note.textContent='Reconstrucción posterior al corte. La elección congelada se consulta en su expediente original.';panel.append(note);}
-    const link=document.createElement('a');link.href=f.source;link.textContent='Ver partido en HLTV';panel.append(link);
+    const link=document.createElement('a');link.href=f.source;link.textContent='Abrir ficha del encuentro';panel.append(link);
     for(const [name,rows] of Object.entries(rep.external_series)){
       for(const row of rows){const line=document.createElement('p'),a=document.createElement('a');a.href=row.source;a.textContent=name+' vs. '+row.opponent+' · '+row.date.slice(0,10);line.append(a);if(row.secondary_source){const other=document.createElement('a');other.href=row.secondary_source;other.textContent=' · Segunda ficha';line.append(other);}panel.append(line);}
     }

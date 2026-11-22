@@ -93,6 +93,20 @@ class FixtureTests(unittest.TestCase):
         self.assertIn('NODWIN Clutch Series 14',result['tournament'])
         self.assertIn('calendario general consultado', ' '.join(diagnostics))
 
+    def test_direct_bo3gg_sheet_verifies_translated_match(self):
+        path='/matches/nuclear-tigeres-vs-betclic-apogee-esports-22-11-2026'
+        event={'@type':'SportsEvent','name':'Nuclear TigeRES vs Betclic',
+               'url':fixtures.second_source.HOST+path,'startDate':'2026-11-22T15:00:00+00:00',
+               'description':'Best of 3','superEvent':{'name':'NODWIN Clutch Series 14'}}
+        page=html.fromstring('<script type="application/ld+json">'+json.dumps(event)+'</script>')
+        match=dict(team_a='Betclic',team_b='Tigre nuclear res',cutoff='2026-11-22T10:00:00-05:00',
+                   source_url=fixtures.second_source.HOST+path)
+        with patch('second_source.fetch',return_value=html.tostring(page,encoding='unicode')):
+            diagnostics=[]
+            result=fixtures.lookup(match,diagnostics)
+        self.assertEqual((result['format'],result['provider']),('BO3','BO3.gg'))
+        self.assertIn('ficha directa', ' '.join(diagnostics))
+
     def test_direct_hltv_link_accepts_browser_translated_team_name(self):
         path='/matches/2400368/33-vs-phantom-nodwin-clutch-series-14'
         page=html.fromstring('<main><div class="team1-gradient"><div class="teamName">33</div></div>'

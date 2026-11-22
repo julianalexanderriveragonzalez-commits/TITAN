@@ -135,17 +135,23 @@ def lookup(match, diagnostics=None):
     names = [match['team_a'],match['team_b']]
     required = {key(n) for n in names}
     url = match.get('source_url','')
-    if not isinstance(url,str) or url and not re.fullmatch(re.escape(HOST)+PATH,url):
-        raise ValueError('Usa la URL completa de una ficha de partido de www.hltv.org.')
+    hltv_url = isinstance(url,str) and re.fullmatch(re.escape(HOST)+PATH,url)
+    bo3_path = None
+    if isinstance(url,str):
+        bo3_match = re.fullmatch(re.escape(second_source.HOST)+r'(/matches/[\w-]+)',url)
+        if bo3_match:
+            bo3_path = bo3_match.group(1)
+    if not isinstance(url,str) or url and not hltv_url and not bo3_path:
+        raise ValueError('Usa la URL completa de una ficha de HLTV o BO3.gg.')
     bucket = int(time()//300)
     def matches(f):
         return ({key(n) for n in f['names']} == required and parse_dt(f['kickoff']) == cutoff
                 and (not url or f['source']==url))
     saved = json.loads(SNAPSHOT.read_text())
-    candidates = [url[len(HOST):]] if url else []
+    candidates = [url[len(HOST):]] if hltv_url else []
     if not url and matches(saved):
         candidates.append(saved['source'][len(HOST):])
-    if not candidates:
+    if not url:
         try:
             listing = read('/results' if cutoff < datetime.now(timezone.utc) else '/matches',bucket)
             for path in listing.xpath('//a/@href'):
@@ -174,7 +180,7 @@ def lookup(match, diagnostics=None):
     if matches(saved):
         diagnostics.append('HLTV: coincidencia exacta con registro archivado')
         return saved
-    if url:
+    if hltv_url:
         diagnostics.append('HLTV: la ficha directa no confirmó nombre, fecha y formato; se prueban otras fuentes')
     def alternate(name):
         slug = key(name)
@@ -217,6 +223,14 @@ def lookup(match, diagnostics=None):
                                     rosters={},history={},team_ids={})
         except (OSError,ValueError,KeyError,TypeError,IndexError,AttributeError) as exc:
             logging.warning('T1 BO3.gg sheet %s: %s',path,exc)
+        return None
+    if bo3_path:
+        fixture = alternate_sheet(bo3_path)
+        if fixture:
+            fixture['provider'] = 'BO3.gg'
+            diagnostics.append('BO3.gg: encuentro verificado por ficha directa, equipos, hora y formato')
+            return fixture
+        diagnostics.append('BO3.gg: la ficha directa no confirmó equipos, hora y formato')
         return None
     with ThreadPoolExecutor(max_workers=2) as pool:
         indexes = list(pool.map(alternate,names))
