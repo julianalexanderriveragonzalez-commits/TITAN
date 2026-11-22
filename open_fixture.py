@@ -26,7 +26,9 @@ def key(name):
     raw = ''.join(c for c in unicodedata.normalize('NFKD', name.casefold()) if c.isalnum())
     return {'fazeclan':'faze', 'fnaticesports':'fnatic', 'natusvincere':'navi',
             'teamvitality':'vitality', 'g2esports':'g2', 'teamfalcons':'falcons',
-            'betboomteam':'betboom', 'futesports':'fut', 'fantasma':'phantom'}.get(raw, raw)
+            'betboomteam':'betboom', 'futesports':'fut', 'fantasma':'phantom',
+            # Browser translation can reorder and translate the official team name.
+            'tigrenuclearres':'nucleartigeres'}.get(raw, raw)
 
 
 @lru_cache(maxsize=96)

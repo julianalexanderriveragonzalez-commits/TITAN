@@ -11,8 +11,11 @@ from lxml import html
 from titan import parse_dt
 
 HOST = 'https://bo3.gg'
-ALIASES = {'mouz':'mouz-cs2','falcons':'falcons-esports','fut':'fut-cs2','betboom':'betboom-team'}
-NAMES = {'teamvitality':'vitality','teamfalcons':'falcons','futesports':'fut','betboomteam':'betboom','navi':'natusvincere','g2esports':'g2','teambetboom':'betboom','teammouz':'mouz','fantasma':'phantom'}
+ALIASES = {'mouz':'mouz-cs2','falcons':'falcons-esports','fut':'fut-cs2','betboom':'betboom-team',
+           'nucleartigeres':'nuclear-tigeres'}
+NAMES = {'teamvitality':'vitality','teamfalcons':'falcons','futesports':'fut','betboomteam':'betboom','navi':'natusvincere','g2esports':'g2','teambetboom':'betboom','teammouz':'mouz','fantasma':'phantom',
+         # Spanish browser translation of Nuclear TigeRES.
+         'tigrenuclearres':'nucleartigeres'}
 TOKEN = re.compile(r'"(?:\\.|[^"\\])*"|Array\(\d+\)|\{\}|\[\]|[^,]+')
 PAIR = re.compile(r'(\w+):("(?:\\.|[^"\\])*"|[\w.-]+)')
 

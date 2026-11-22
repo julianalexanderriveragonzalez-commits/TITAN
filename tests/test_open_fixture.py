@@ -52,6 +52,21 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(fixtures.key('Natus Vincere'), fixtures.key('NAVI'))
         self.assertNotEqual(fixtures.key('Perturbar'), fixtures.key('FaZe'))
         self.assertEqual(fixtures.key('Fantasma'), fixtures.key('Phantom'))
+        self.assertEqual(fixtures.key('Tigre nuclear res'), fixtures.key('Nuclear TigeRES'))
+        self.assertEqual(fixtures.second_source.norm('Tigre nuclear res'), 'nucleartigeres')
+
+    def test_translated_team_name_finds_official_hltv_calendar_slug(self):
+        path='/matches/2400370/betclic-vs-nuclear-tigeres-nodwin-clutch-series-14'
+        calendar=html.fromstring('<a href="'+path+'">fixture</a>')
+        page=html.fromstring('<main><div class="team1-gradient"><div class="teamName">Betclic</div></div>'
+            '<div class="team2-gradient"><div class="teamName">Nuclear TigeRES</div></div><div class="timeAndEvent">'
+            '<div class="time" data-unix="1795359600000"></div><a href="/events/123/nodwin">NODWIN Clutch Series 14</a>'
+            '</div><div class="preformatted-text">Best of 3</div></main>')
+        match=dict(team_a='Betclic',team_b='Tigre nuclear res',cutoff='2026-11-22T10:00:00-05:00')
+        with patch('open_fixture.read',side_effect=[calendar,page]):
+            result=fixtures.lookup(match)
+        self.assertEqual(result['names'],['Betclic','Nuclear TigeRES'])
+        self.assertEqual(result['format'],'BO3')
 
     def test_direct_hltv_link_accepts_browser_translated_team_name(self):
         path='/matches/2400368/33-vs-phantom-nodwin-clutch-series-14'
