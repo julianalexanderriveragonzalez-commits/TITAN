@@ -10,6 +10,7 @@ from pathlib import Path
 from time import time
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
+from urllib.parse import urlencode
 
 from lxml import html
 from titan import parse_dt, FORMATS
@@ -20,7 +21,6 @@ HOST = 'https://www.hltv.org'
 PATH = r'/matches/\d{5,10}/[a-z0-9-]+'
 ERRORS = (OSError, ValueError, IndexError, OverflowError)
 SNAPSHOT = Path(__file__).with_name('nodwin_fixture.json')
-VERIFIED_FIXTURES = Path(__file__).with_name('verified_fixtures.json')
 
 
 def key(name):
@@ -130,6 +130,83 @@ def api_fixture(match, required, cutoff, bucket, diagnostics=None):
     return next(iter(found.values())) if len(found)==1 else None
 
 
+def bo3_api_fixture(match, required, cutoff, diagnostics=None):
+    """Find an exact CS2 fixture in BO3.gg's public match calendar API."""
+    diagnostics = diagnostics if diagnostics is not None else []
+    endpoint = 'https://api.bo3.gg/api/v1/matches'
+    lower = (cutoff-timedelta(days=1)).astimezone(timezone.utc).isoformat()
+    upper = (cutoff+timedelta(days=1)).astimezone(timezone.utc).isoformat()
+    supplied = match.get('source_url','')
+    found = {}
+    params = {
+        'scope':'widget-matches', 'page[offset]':0, 'page[limit]':100,
+        'sort':'start_date', 'filter[matches.discipline_id][eq]':1,
+        'filter[matches.start_date][gt]':lower,
+        'filter[matches.start_date][lt]':upper,
+        'with':'teams,tournament,games'
+    }
+    try:
+        offset = 0
+        for _ in range(6):
+            params['page[offset]'] = offset
+            req = Request(endpoint+'?'+urlencode(params),
+                          headers={'User-Agent':'TITAN-CS2/1.0','Accept':'application/json'})
+            with urlopen(req, timeout=10) as response:
+                raw = response.read(3_000_001)
+            if len(raw)>3_000_000:
+                raise ValueError('respuesta demasiado grande')
+            payload = json.loads(raw)
+            rows = payload.get('results') if isinstance(payload,dict) else None
+            total = payload.get('total') if isinstance(payload,dict) else None
+            count = total.get('count') if isinstance(total,dict) else None
+            if not isinstance(rows,list) or not isinstance(count,int):
+                raise ValueError('estructura de calendario inesperada')
+            for row in rows:
+                if not isinstance(row,dict) or row.get('status') not in ('upcoming','current','finished'):
+                    continue
+                sides = [row.get('team1'),row.get('team2')]
+                names = [v.get('name','') if isinstance(v,dict) else '' for v in sides]
+                if len(names)!=2 or not all(names) or {key(n) for n in names}!=required:
+                    continue
+                kickoff = parse_dt(row['start_date'])
+                fmt = 'BO'+str(row.get('bo_type'))
+                if kickoff!=cutoff or fmt not in FORMATS:
+                    continue
+                slug = row.get('slug')
+                ident = row.get('id')
+                event = (row.get('tournament') or {}).get('name')
+                if not isinstance(slug,str) or not re.fullmatch(r'[a-z0-9-]+',slug) or not event:
+                    continue
+                source = second_source.HOST+'/matches/'+slug
+                # An optional link helps recovery from blocked HLTV pages. If the user
+                # supplied a BO3.gg link, require that exact canonical fixture.
+                if supplied.startswith(second_source.HOST+'/') and source!=supplied:
+                    continue
+                if not isinstance(ident,int):
+                    continue
+                found[ident] = dict(names=names,source=source,tournament=event,format=fmt,
+                                    kickoff=kickoff.isoformat(),checked=datetime.now(timezone.utc).isoformat(),
+                                    rosters={},history={},team_ids={},provider='BO3.gg API',provider_id=ident)
+            if offset+len(rows)>=count:
+                break
+            if len(rows)<100:
+                diagnostics.append('BO3.gg API: calendario incompleto; no se confirmó unicidad')
+                return None
+            offset += len(rows)
+        else:
+            diagnostics.append('BO3.gg API: límite de páginas; no se confirmó unicidad')
+            return None
+    except HTTPError as exc:
+        diagnostics.append(f'BO3.gg API: HTTP {exc.code}')
+        return None
+    except (OSError,ValueError,TypeError,KeyError,AttributeError) as exc:
+        logging.warning('T1 BO3.gg API: %s',type(exc).__name__)
+        diagnostics.append('BO3.gg API: acceso o respuesta inválida ('+type(exc).__name__+')')
+        return None
+    diagnostics.append('BO3.gg API: calendario consultado; coincidencias exactas='+str(len(found)))
+    return next(iter(found.values())) if len(found)==1 else None
+
+
 def lookup(match, diagnostics=None):
     diagnostics = diagnostics if diagnostics is not None else []
     cutoff = parse_dt(match['cutoff'])
@@ -148,16 +225,12 @@ def lookup(match, diagnostics=None):
     def matches(f):
         return ({key(n) for n in f['names']} == required and parse_dt(f['kickoff']) == cutoff
                 and (not url or f['source']==url))
-    # A one-time, exact fixture record for a public page whose server response omits
-    # its client-rendered match card. It is accepted only for the recorded teams/time.
-    for record in json.loads(VERIFIED_FIXTURES.read_text()):
-        try:
-            checked=parse_dt(record['checked'])
-            if matches(record) and checked < cutoff:
-                diagnostics.append('Registro verificado de BO3.gg: equipos, fecha y formato exactos')
-                return record
-        except (KeyError,TypeError,ValueError):
-            continue
+    # Try BO3.gg's calendar JSON first: its HTML calendar is client-rendered and may
+    # arrive as an empty shell from the service runtime.
+    if not url:
+        fixture = bo3_api_fixture(match,required,cutoff,diagnostics)
+        if fixture:
+            return fixture
     saved = json.loads(SNAPSHOT.read_text())
     candidates = [url[len(HOST):]] if hltv_url else []
     if not url and matches(saved):
@@ -193,6 +266,10 @@ def lookup(match, diagnostics=None):
         return saved
     if hltv_url:
         diagnostics.append('HLTV: la ficha directa no confirmó nombre, fecha y formato; se prueban otras fuentes')
+        fixture = bo3_api_fixture(match,required,cutoff,diagnostics)
+        if fixture:
+            diagnostics.append('BO3.gg API: cruce recuperado pese al bloqueo de la ficha HLTV')
+            return fixture
     def alternate(name):
         slug = key(name)
         try:
@@ -319,6 +396,10 @@ def lookup(match, diagnostics=None):
             diagnostics.append('BO3.gg: encuentro verificado por ficha directa, equipos, hora y formato')
             return fixture
         diagnostics.append('BO3.gg: ficha directa no validada ('+'; '.join(getattr(alternate_sheet,'last_reasons',[]))[:180]+')')
+        api = bo3_api_fixture(match,required,cutoff,diagnostics)
+        if api and (not url or api['source']==url):
+            diagnostics.append('BO3.gg API: ficha directa corroborada por equipos, hora y formato')
+            return api
         return None
     with ThreadPoolExecutor(max_workers=2) as pool:
         indexes = list(pool.map(alternate,names))

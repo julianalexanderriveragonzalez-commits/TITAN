@@ -1,5 +1,6 @@
 import json
 import unittest
+from io import BytesIO
 from unittest.mock import patch
 
 import open_fixture as fixtures
@@ -10,6 +11,10 @@ class FixtureTests(unittest.TestCase):
     def setUp(self):
         self.saved = json.loads(fixtures.SNAPSHOT.read_text())
         self.match = dict(team_a='Genone', team_b='33',cutoff='2026-11-14T13:30:00-05:00')
+        self.bo3_api = fixtures.bo3_api_fixture
+        self.calendar_patch = patch('open_fixture.bo3_api_fixture',return_value=None)
+        self.calendar_mock = self.calendar_patch.start()
+        self.addCleanup(self.calendar_patch.stop)
 
     @patch('open_fixture.read',side_effect=OSError)
     def test_original_fixture_offline(self,read):
@@ -17,8 +22,10 @@ class FixtureTests(unittest.TestCase):
 
     @patch('open_fixture.read',side_effect=OSError)
     def test_other_fixture_or_cutoff_never_uses_snapshot(self,read):
-        self.assertIsNone(fixtures.lookup(dict(self.match,team_b='333')))
-        self.assertIsNone(fixtures.lookup(dict(self.match,cutoff='2026-11-14T13:00:00-05:00')))
+        with patch('second_source.fetch',side_effect=OSError('blocked')), \
+             patch('open_fixture.api_fixture',return_value=None):
+            self.assertIsNone(fixtures.lookup(dict(self.match,team_b='333')))
+            self.assertIsNone(fixtures.lookup(dict(self.match,cutoff='2026-11-14T13:00:00-05:00')))
 
     def test_untrusted_url(self):
         with self.assertRaises(ValueError):
@@ -93,19 +100,47 @@ class FixtureTests(unittest.TestCase):
         self.assertIn('NODWIN Clutch Series 14',result['tournament'])
         self.assertIn('calendario general consultado', ' '.join(diagnostics))
 
-    def test_exact_audited_betclic_fixture_uses_registry_without_network(self):
+    def test_bo3_api_finds_exact_match_without_a_hardcoded_fixture(self):
         match=dict(team_a='Betclic',team_b='Tigre nuclear res',cutoff='2026-11-22T10:00:00-05:00')
-        with patch('open_fixture.read',side_effect=AssertionError('network should not be needed')):
+        row={'id':134017,'slug':'nuclear-tigeres-vs-betclic-apogee-esports-22-11-2026',
+             'status':'current','start_date':'2026-11-22T15:00:00+00:00','bo_type':3,
+             'team1':{'name':'Nuclear TigeRES'},'team2':{'name':'Betclic'},
+             'tournament':{'name':'NODWIN Clutch Series 14'}}
+        payload={'total':{'count':1},'results':[row]}
+        with patch('open_fixture.urlopen',return_value=BytesIO(json.dumps(payload).encode())):
             diagnostics=[]
-            result=fixtures.lookup(match,diagnostics)
-        self.assertEqual((result['names'],result['format']),(['Betclic','Nuclear TigeRES'],'BO3'))
-        self.assertIn('ficha verificada',result['provider'])
-        self.assertEqual(result['history'],{})
-        self.assertIn('Registro verificado de BO3.gg', ' '.join(diagnostics))
-        with patch('open_fixture.read',side_effect=OSError('blocked')), \
-             patch('second_source.fetch',side_effect=OSError('blocked')), \
-             patch('open_fixture.api_fixture',return_value=None):
-            self.assertIsNone(fixtures.lookup(dict(match,cutoff='2026-11-22T10:01:00-05:00')))
+            result=self.bo3_api(match,{fixtures.key(match['team_a']),fixtures.key(match['team_b'])},
+                                fixtures.parse_dt(match['cutoff']),diagnostics)
+        self.assertEqual((result['format'],result['tournament']),('BO3','NODWIN Clutch Series 14'))
+        self.assertEqual(result['provider'],'BO3.gg API')
+        self.assertIn('coincidencias exactas=1',' '.join(diagnostics))
+
+    def test_lookup_uses_bo3_calendar_before_blocked_html_sources(self):
+        match=dict(team_a='Envy',team_b='SINNERS',cutoff='2026-11-22T11:00:00-05:00')
+        row={'id':134017,'slug':'envyus-vs-sinners-22-11-2026','status':'upcoming',
+             'start_date':'2026-11-22T16:00:00+00:00','bo_type':3,
+             'team1':{'name':'Envy'},'team2':{'name':'SINNERS'},
+             'tournament':{'name':'RUSH:Brno 2026'}}
+        payload={'total':{'count':1},'results':[row]}
+        self.calendar_patch.stop()
+        with patch('open_fixture.urlopen',return_value=BytesIO(json.dumps(payload).encode())), \
+             patch('open_fixture.read',side_effect=AssertionError('HTML lookup should not run')):
+            result=fixtures.lookup(match)
+        self.assertEqual((result['names'],result['tournament'],result['format']),
+                         (['Envy','SINNERS'],'RUSH:Brno 2026','BO3'))
+
+    def test_bo3_api_refuses_multiple_exact_candidates(self):
+        match=dict(team_a='Alpha',team_b='Beta',cutoff='2026-11-14T13:30:00-05:00')
+        rows=[{'id':i,'slug':f'alpha-vs-beta-{i}','status':'upcoming',
+               'start_date':'2026-11-14T18:30:00+00:00','bo_type':3,
+               'team1':{'name':'Alpha'},'team2':{'name':'Beta'},
+               'tournament':{'name':'Regional'}} for i in (1,2)]
+        with patch('open_fixture.urlopen',return_value=BytesIO(json.dumps(
+                {'total':{'count':2},'results':rows}).encode())):
+            diagnostics=[]
+            result=self.bo3_api(match,{'alpha','beta'},fixtures.parse_dt(match['cutoff']),diagnostics)
+        self.assertIsNone(result)
+        self.assertIn('coincidencias exactas=2',' '.join(diagnostics))
 
     def test_direct_bo3gg_sheet_verifies_translated_match(self):
         path='/matches/nuclear-tigeres-vs-betclic-apogee-esports-23-11-2026'
