@@ -97,8 +97,9 @@ class FixtureTests(unittest.TestCase):
         path='/matches/nuclear-tigeres-vs-betclic-apogee-esports-22-11-2026'
         event={'@type':'SportsEvent','name':'Nuclear TigeRES vs Betclic',
                'url':fixtures.second_source.HOST+path,'startDate':'2026-11-22T15:00:00+00:00',
-               'description':'Best of 3','superEvent':{'name':'NODWIN Clutch Series 14'}}
-        page=html.fromstring('<script type="application/ld+json">'+json.dumps(event)+'</script>')
+               'description':'Nuclear TigeRES vs Betclic','organizer':{'name':'NODWIN Clutch Series 14'}}
+        page=html.fromstring('<script type="application/ld+json">'+json.dumps([event])+'</script>'
+                            '<span class="bo-type">Bo3</span>')
         match=dict(team_a='Betclic',team_b='Tigre nuclear res',cutoff='2026-11-22T10:00:00-05:00',
                    source_url=fixtures.second_source.HOST+path)
         with patch('second_source.fetch',return_value=html.tostring(page,encoding='unicode')):

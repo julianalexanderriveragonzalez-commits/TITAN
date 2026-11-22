@@ -206,12 +206,12 @@ def lookup(match, diagnostics=None):
                     if len(sides)!=2 or {key(n) for n in sides}!=required or event.get('url')!=second_source.HOST+path:
                         continue
                     kickoff = parse_dt(event['startDate'])
-                    context = str(event.get('description',''))+' '+' '.join(e.text_content() for e in doc.xpath('//*[contains(@class,"match-format") or contains(@class,"best-of")]'))
+                    context = str(event.get('description',''))+' '+' '.join(e.text_content() for e in doc.xpath('//*[contains(@class,"match-format") or contains(@class,"best-of") or contains(@class,"bo-type")]'))
                     formats = set(re.findall(r'\b(?:bo\s*|best.of.)([12357])\b',context,re.I))
                     if len(formats)!=1 or kickoff!=cutoff:
                         logging.warning('T1 BO3.gg mismatch %s kickoff=%s formats=%s',path,kickoff,sorted(formats))
                         continue
-                    tournament = event.get('superEvent') or event.get('eventSeries')
+                    tournament = event.get('superEvent') or event.get('eventSeries') or event.get('organizer')
                     if isinstance(tournament,dict):
                         tournament = tournament.get('name')
                     if not isinstance(tournament,str) or not tournament.strip():
