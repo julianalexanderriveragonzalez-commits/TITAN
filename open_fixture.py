@@ -226,6 +226,21 @@ def lookup(match, diagnostics=None):
         diagnostics.append('BO3.gg: error de acceso en índice de equipo ('+', '.join(index_errors)[:120]+')')
     else:
         diagnostics.append('BO3.gg: índices consultados; fichas candidatas='+str(len(paths)))
+    # Team match pages can lag behind the tournament schedule or omit a newly listed fixture.
+    # Consult the public current-match index as a recovery path, still requiring exact teams,
+    # kickoff and BO format in each candidate's structured event record below.
+    if not paths:
+        try:
+            index = html.fromstring(second_source.fetch('/matches/current',bucket))
+            dates = {(cutoff+timedelta(days=i)).strftime('%d-%m-%Y') for i in (-1,0,1)}
+            paths = [p for p in dict.fromkeys(index.xpath('//a[starts-with(@href,"/matches/")]/@href'))
+                     if re.fullmatch(r'/matches/[\w-]+',p)
+                     and all(key(n) in key(p.split('/')[-1]) for n in names)
+                     and any(p.endswith('-'+d) for d in dates)]
+            diagnostics.append('BO3.gg: calendario general consultado; fichas candidatas='+str(len(paths)))
+        except ERRORS as exc:
+            logging.warning('T1 BO3.gg calendar: %s',exc)
+            diagnostics.append('BO3.gg: calendario general inaccesible ('+str(exc)[:100]+')')
     with ThreadPoolExecutor(max_workers=4) as pool:
         alternatives = [f for f in pool.map(alternate_sheet,paths[:12]) if f]
     logging.warning('T1 BO3.gg candidates=%s verified=%s',len(paths),len(alternatives))

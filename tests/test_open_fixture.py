@@ -54,6 +54,7 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(fixtures.key('Fantasma'), fixtures.key('Phantom'))
         self.assertEqual(fixtures.key('Tigre nuclear res'), fixtures.key('Nuclear TigeRES'))
         self.assertEqual(fixtures.second_source.norm('Tigre nuclear res'), 'nucleartigeres')
+        self.assertEqual(fixtures.second_source.ALIASES['nucleartigeres'], 'nuclear-tigeres')
 
     def test_translated_team_name_finds_official_hltv_calendar_slug(self):
         path='/matches/2400370/betclic-vs-nuclear-tigeres-nodwin-clutch-series-14'
@@ -67,6 +68,30 @@ class FixtureTests(unittest.TestCase):
             result=fixtures.lookup(match)
         self.assertEqual(result['names'],['Betclic','Nuclear TigeRES'])
         self.assertEqual(result['format'],'BO3')
+
+    def test_translated_name_recovers_from_bo3_global_calendar(self):
+        path='/matches/nuclear-tigeres-vs-betclic-apogee-esports-22-11-2026'
+        event={'@type':'SportsEvent','name':'Nuclear TigeRES vs Betclic','url':fixtures.second_source.HOST+path,
+               'startDate':'2026-11-22T15:00:00+00:00','description':'Best of 3',
+               'superEvent':{'name':'NODWIN Clutch Series 14'}}
+        page=html.fromstring('<script type="application/ld+json">'+json.dumps(event)+'</script>')
+        schedule=html.fromstring('<a href="'+path+'">fixture</a>')
+        def fetch(pathname,bucket):
+            if pathname.startswith('/teams/'):
+                return '<main></main>'
+            if pathname=='/matches/current':
+                return html.tostring(schedule,encoding='unicode')
+            if pathname==path:
+                return html.tostring(page,encoding='unicode')
+            raise AssertionError(pathname)
+        match=dict(team_a='Betclic',team_b='Tigre nuclear res',cutoff='2026-11-22T10:00:00-05:00')
+        with patch('open_fixture.read',side_effect=OSError('blocked')), \
+             patch('second_source.fetch',side_effect=fetch):
+            diagnostics=[]
+            result=fixtures.lookup(match,diagnostics)
+        self.assertEqual(result['format'],'BO3')
+        self.assertIn('NODWIN Clutch Series 14',result['tournament'])
+        self.assertIn('calendario general consultado', ' '.join(diagnostics))
 
     def test_direct_hltv_link_accepts_browser_translated_team_name(self):
         path='/matches/2400368/33-vs-phantom-nodwin-clutch-series-14'
