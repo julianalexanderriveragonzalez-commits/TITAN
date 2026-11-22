@@ -33,7 +33,8 @@ def key(name):
 def read(path, bucket):
     if path not in ('/matches', '/results') and not re.fullmatch(PATH, path):
         raise ValueError('Ruta HLTV inválida')
-    with urlopen(Request(HOST + path, headers={'User-Agent':'TITAN-CS2/1.0'}), timeout=4) as response:
+    # Fixture pages can be heavier than the calendar; allow enough time for a direct-link fetch.
+    with urlopen(Request(HOST + path, headers={'User-Agent':'TITAN-CS2/1.0'}), timeout=12) as response:
         data = response.read(3_000_001)
     if len(data) > 3_000_000 or not data:
         raise ValueError('Ficha inaccesible')
