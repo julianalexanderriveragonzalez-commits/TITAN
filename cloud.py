@@ -169,16 +169,18 @@ def app(environ, start_response):
                     except (OSError, ValueError, KeyError, TypeError, IndexError):
                         pass
                 if evidence is None:
-                    external = open_fixture.lookup(match)
+                    source_diagnostics = []
+                    external = open_fixture.lookup(match, source_diagnostics)
                     if not external:
-                        reason = 'No se pudo verificar un encuentro único. Usa los nombres oficiales (sin traducción), verifica la hora de Colombia o aporta la ficha HLTV. No se emitirá una predicción sobre un partido no identificado.'
+                        reason = 'No se pudo verificar un encuentro único. Revisa el nombre canónico, la hora de Colombia o pega la ficha completa de HLTV. No se emitirá una predicción sobre un partido no identificado.'
                     elif external['format'] not in ('BO1','BO2','BO3','BO5','BO7'):
                         reason = 'Encuentro localizado en '+external['tournament']+'. El formato '+external['format']+' requiere una evaluación específica. Formato no reconocido por el modelo.'
                     else:
                         reason = None
                     if reason:
                         return json_reply(start_response, '409 Conflict' if path.endswith('freeze') else '200 OK',
-                                          {'pending':True,'error':reason,'external_fixture':external})
+                                          {'pending':True,'error':reason,'external_fixture':external,
+                                           'source_diagnostics':source_diagnostics})
                     # Canonical names must follow the validated fixture into history and verdict.
                     for field in ('team_a','team_b'):
                         match[field] = next(n for n in external['names'] if open_fixture.key(n)==open_fixture.key(match[field]))

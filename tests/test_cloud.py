@@ -121,6 +121,20 @@ class CloudTests(unittest.TestCase):
         self.assertTrue(status.startswith('404'))
     def test_analyze_without_fabricating(self):
         s,r=self.request('/api/analyze','POST',self.payload(2));self.assertTrue(s.startswith('200'));self.assertEqual(r['selection_type'],'PROVISIONAL FORZADA');self.assertEqual(len(r['controls_R33_R34']),12)
+
+    def test_unverified_fixture_returns_per_source_diagnostics(self):
+        p=self.payload(2)
+        p.update(research_mode='automatic',teams={'33':{},'Fantasma':{}})
+        p['match'].update(team_a='33',team_b='Fantasma',source_url='')
+        def failed_lookup(match, diagnostics):
+            diagnostics.extend(['HLTV: calendario inaccesible (HTTP 403)','PandaScore: HTTP 401 (token rechazado o vencido)'])
+            return None
+        with patch('cloud.automatic_input',side_effect=OSError('fixture lookup unavailable')), \
+             patch('cloud.open_fixture.lookup',side_effect=failed_lookup):
+            status,r=self.request('/api/analyze','POST',p)
+        self.assertTrue(status.startswith('200'))
+        self.assertTrue(r['pending'])
+        self.assertIn('PandaScore: HTTP 401',r['source_diagnostics'][1])
     def test_reopen_frozen_report_only_from_own_browser(self):
         _,frozen=self.request('/api/freeze','POST',self.payload(2))
         route='/api/history/'+frozen['id']

@@ -24,9 +24,9 @@ SNAPSHOT = Path(__file__).with_name('nodwin_fixture.json')
 
 def key(name):
     raw = ''.join(c for c in unicodedata.normalize('NFKD', name.casefold()) if c.isalnum())
-    return {'fazeclan':'faze', 'perturbar':'faze', 'fase':'faze', 'fnaticesports':'fnatic', 'natusvincere':'navi',
+    return {'fazeclan':'faze', 'fnaticesports':'fnatic', 'natusvincere':'navi',
             'teamvitality':'vitality', 'g2esports':'g2', 'teamfalcons':'falcons',
-            'betboomteam':'betboom', 'futesports':'fut'}.get(raw, raw)
+            'betboomteam':'betboom', 'futesports':'fut', 'fantasma':'phantom'}.get(raw, raw)
 
 
 @lru_cache(maxsize=96)
@@ -67,13 +67,15 @@ def sheet(doc, path, checked):
 
 
 
-def api_fixture(match, required, cutoff, bucket):
+def api_fixture(match, required, cutoff, bucket, diagnostics=None):
     """Authorized calendar API; token stays server-side and never enters evidence."""
+    diagnostics = diagnostics if diagnostics is not None else []
     import os
     from urllib.parse import urlencode
     token = os.environ.get('PANDASCORE_TOKEN','').strip()
     if not token:
         logging.warning('T1 PandaScore: token not configured')
+        diagnostics.append('PandaScore: token no configurado')
         return None
     endpoint = 'https://api.pandascore.co/csgo/matches'
     params = {'range[scheduled_at]':(cutoff-timedelta(days=1)).isoformat()+','+(cutoff+timedelta(days=1)).isoformat(), 'per_page':100}
@@ -108,18 +110,24 @@ def api_fixture(match, required, cutoff, bucket):
                 break
         else:
             logging.warning('T1 PandaScore: pagination limit reached; uniqueness not established')
+            diagnostics.append('PandaScore: límite de páginas; no se pudo confirmar unicidad')
             return None
     except HTTPError as exc:
         logging.warning('T1 PandaScore: HTTP %s',exc.code)
+        detail = 'token rechazado o vencido' if exc.code == 401 else 'acceso denegado' if exc.code == 403 else 'error HTTP'
+        diagnostics.append(f'PandaScore: HTTP {exc.code} ({detail})')
         return None
     except (OSError,ValueError,TypeError,KeyError,AttributeError) as exc:
         logging.warning('T1 PandaScore: %s',type(exc).__name__)
+        diagnostics.append('PandaScore: error de conexión o respuesta inválida ('+type(exc).__name__+')')
         return None
     logging.warning('T1 PandaScore candidates=%s',len(found))
+    diagnostics.append('PandaScore: consulta completada; coincidencias exactas='+str(len(found)))
     return next(iter(found.values())) if len(found)==1 else None
 
 
-def lookup(match):
+def lookup(match, diagnostics=None):
+    diagnostics = diagnostics if diagnostics is not None else []
     cutoff = parse_dt(match['cutoff'])
     names = [match['team_a'],match['team_b']]
     required = {key(n) for n in names}
@@ -140,35 +148,42 @@ def lookup(match):
             for path in listing.xpath('//a/@href'):
                 if re.fullmatch(PATH,path) and all(key(n) in key(path.split('/')[-1]) for n in names):
                     candidates.append(path)
+            diagnostics.append('HLTV: calendario consultado; fichas candidatas='+str(len(set(candidates))))
         except ERRORS as exc:
             logging.warning('T1 HLTV listing: %s', exc)
+            diagnostics.append('HLTV: calendario inaccesible ('+str(exc)[:100]+')')
     verified = []
     for path in list(dict.fromkeys(candidates))[:24]:
         try:
             record = sheet(read(path,bucket),path,datetime.now(timezone.utc).isoformat())
         except ERRORS as exc:
             logging.warning('T1 HLTV sheet %s: %s', path, exc)
+            diagnostics.append('HLTV: ficha inaccesible ('+str(exc)[:100]+')')
             continue
         if matches(record):
             verified.append(record)
     if len(verified) == 1:
+        diagnostics.append('HLTV: encuentro verificado por nombre, fecha y ficha')
         return verified[0]
     if len(verified) > 1:
+        diagnostics.append('HLTV: varias fichas coinciden; se bloqueó la selección')
         return None
     if matches(saved):
+        diagnostics.append('HLTV: coincidencia exacta con registro archivado')
         return saved
     if url:
-        return None
+        diagnostics.append('HLTV: la ficha directa no confirmó nombre, fecha y formato; se prueban otras fuentes')
     def alternate(name):
         slug = key(name)
         try:
             index = html.fromstring(second_source.fetch('/teams/'+second_source.ALIASES.get(slug,slug)+'/matches',bucket))
             dates = {(cutoff+timedelta(days=i)).strftime('%d-%m-%Y') for i in (-1,0,1)}
-            return [p for p in dict.fromkeys(index.xpath('//a[starts-with(@href,"/matches/")]/@href'))
-                    if re.fullmatch(r'/matches/[\w-]+',p) and any(p.endswith('-'+d) for d in dates)]
+            paths = [p for p in dict.fromkeys(index.xpath('//a[starts-with(@href,"/matches/")]/@href'))
+                     if re.fullmatch(r'/matches/[\w-]+',p) and any(p.endswith('-'+d) for d in dates)]
+            return paths, None
         except ERRORS as exc:
             logging.warning('T1 BO3.gg index %s: %s',slug,exc)
-            return []
+            return [], str(exc)
     def alternate_sheet(path):
         try:
             doc = html.fromstring(second_source.fetch(path,bucket))
@@ -201,13 +216,23 @@ def lookup(match):
             logging.warning('T1 BO3.gg sheet %s: %s',path,exc)
         return None
     with ThreadPoolExecutor(max_workers=2) as pool:
-        paths = list(dict.fromkeys(p for group in pool.map(alternate,names) for p in group))
+        indexes = list(pool.map(alternate,names))
+    paths = list(dict.fromkeys(p for group,_ in indexes for p in group))
+    index_errors = [error for _,error in indexes if error]
+    if index_errors:
+        diagnostics.append('BO3.gg: error de acceso en índice de equipo ('+', '.join(index_errors)[:120]+')')
+    else:
+        diagnostics.append('BO3.gg: índices consultados; fichas candidatas='+str(len(paths)))
     with ThreadPoolExecutor(max_workers=4) as pool:
         alternatives = [f for f in pool.map(alternate_sheet,paths[:12]) if f]
     logging.warning('T1 BO3.gg candidates=%s verified=%s',len(paths),len(alternatives))
+    diagnostics.append('BO3.gg: fichas verificadas='+str(len(alternatives)))
     if len(alternatives)>1:
+        diagnostics.append('BO3.gg: varias coincidencias; se bloqueó la selección')
         return None
-    return alternatives[0] if alternatives else api_fixture(match,required,cutoff,bucket)
+    if alternatives:
+        return alternatives[0]
+    return api_fixture(match,required,cutoff,bucket,diagnostics)
 
 
 def completed_score(fmt, scores):

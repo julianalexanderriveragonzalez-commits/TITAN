@@ -15,7 +15,10 @@ async function action(freeze){
   show($('manual').checked?'Analizando datos manuales…':'Buscando el encuentro y revisando las fuentes disponibles…');
   const p=data(); const r=await api(freeze?'/api/freeze':'/api/analyze','POST',p);
   const rep=freeze?r.report:r;
-  if(rep.pending){show(rep.error);return;}
+  if(rep.pending){
+    const details=rep.source_diagnostics?.length?'\n\nDiagnóstico por fuente:\n'+rep.source_diagnostics.map(x=>'• '+x).join('\n'):'';
+    show(rep.error+details);return;
+  }
   renderReport(rep,rep.snapshot_id || (freeze?r.id:null));
   if(freeze || rep.snapshot_id) await history();
  }catch(e){show('Error: '+e.message)}
@@ -25,7 +28,7 @@ function renderReport(rep,id){
   let fixturePanel;
   if(rep.external_fixture){
     const f=rep.external_fixture;
-    show(f.tournament+' · '+f.format+' · HLTV\n'+Object.entries(rep.external_series).map(([n,rows])=>n+' · '+rows.length+' BO3 documentados · '+rows.filter(r=>r.result==='W').length+' victorias · '+rows.filter(r=>r.secondary_source).length+' con segunda ficha').join('\n')+'\n\n'+$('result').textContent);
+    show(f.tournament+' · '+f.format+' · '+(f.provider||'HLTV')+'\n'+Object.entries(rep.external_series).map(([n,rows])=>n+' · '+rows.length+' BO3 documentados · '+rows.filter(r=>r.result==='W').length+' victorias · '+rows.filter(r=>r.secondary_source).length+' con segunda ficha').join('\n')+'\n\n'+$('result').textContent);
     const panel=document.createElement('details'),title=document.createElement('summary');
     title.textContent='Ficha del encuentro y antecedentes';panel.append(title);
     if(rep.verdict?.timing==='RETROSPECTIVO'){const note=document.createElement('p');note.textContent='Reconstrucción posterior al corte. La elección congelada se consulta en su expediente original.';panel.append(note);}

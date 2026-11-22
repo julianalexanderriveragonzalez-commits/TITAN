@@ -51,6 +51,36 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(fixtures.key('FaZe Clan'), fixtures.key('FaZe'))
         self.assertEqual(fixtures.key('Natus Vincere'), fixtures.key('NAVI'))
         self.assertNotEqual(fixtures.key('Perturbar'), fixtures.key('FaZe'))
+        self.assertEqual(fixtures.key('Fantasma'), fixtures.key('Phantom'))
+
+    def test_direct_hltv_link_accepts_browser_translated_team_name(self):
+        path='/matches/2400368/33-vs-phantom-nodwin-clutch-series-14'
+        page=html.fromstring('<main><div class="team1-gradient"><div class="teamName">33</div></div>'
+            '<div class="team2-gradient"><div class="teamName">Phantom</div></div><div class="timeAndEvent">'
+            '<div class="time" data-unix="1795338000000"></div><a href="/events/123/nodwin">NODWIN Clutch Series 14</a>'
+            '</div><div class="preformatted-text">Best of 3</div></main>')
+        match=dict(team_a='33',team_b='Fantasma',cutoff='2026-11-22T04:00:00-05:00',
+                   source_url=fixtures.HOST+path)
+        with patch('open_fixture.read',return_value=page) as read:
+            result=fixtures.lookup(match)
+        self.assertEqual((result['names'],result['format']),(['33','Phantom'],'BO3'))
+        read.assert_called_once_with(path,read.call_args.args[1])
+
+    def test_direct_hltv_failure_still_tries_fallback_sources(self):
+        path='/matches/2400368/33-vs-phantom-nodwin-clutch-series-14'
+        match=dict(team_a='33',team_b='Fantasma',cutoff='2026-11-22T04:00:00-05:00',
+                   source_url=fixtures.HOST+path)
+        fallback={'names':['33','Phantom'],'source':'https://api.pandascore.co/csgo/matches/1',
+                  'tournament':'NODWIN Clutch Series 14','format':'BO3',
+                  'kickoff':'2026-11-22T09:00:00+00:00'}
+        with patch('open_fixture.read',side_effect=OSError('blocked')), \
+             patch('second_source.fetch',side_effect=OSError('blocked')), \
+             patch('open_fixture.api_fixture',return_value=fallback) as api:
+            diagnostics=[]
+            result=fixtures.lookup(match,diagnostics)
+        self.assertEqual(result,fallback)
+        api.assert_called_once()
+        self.assertTrue(any('ficha directa' in d for d in diagnostics))
 
     def test_ambiguous_matches_are_not_selected(self):
         paths=['/matches/9876543/alpha-vs-beta-regional','/matches/9876544/alpha-vs-beta-regional']
