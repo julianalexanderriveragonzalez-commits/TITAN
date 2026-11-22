@@ -194,6 +194,7 @@ def lookup(match, diagnostics=None):
             logging.warning('T1 BO3.gg index %s: %s',slug,exc)
             return [], str(exc)
     def alternate_sheet(path):
+        reasons = []
         try:
             doc = html.fromstring(second_source.fetch(path,bucket))
             for raw in doc.xpath('//script[@type="application/ld+json"]/text()'):
@@ -203,12 +204,20 @@ def lookup(match, diagnostics=None):
                     if not isinstance(event,dict) or event.get('@type')!='SportsEvent':
                         continue
                     sides = event.get('name','').split(' vs ')
-                    if len(sides)!=2 or {key(n) for n in sides}!=required or event.get('url')!=second_source.HOST+path:
+                    if len(sides)!=2 or {key(n) for n in sides}!=required:
+                        reasons.append('nombres de equipos distintos')
+                        continue
+                    if event.get('url')!=second_source.HOST+path:
+                        reasons.append('URL canónica distinta')
                         continue
                     kickoff = parse_dt(event['startDate'])
                     context = str(event.get('description',''))+' '+' '.join(e.text_content() for e in doc.xpath('//*[contains(@class,"match-format") or contains(@class,"best-of") or contains(@class,"bo-type")]'))
                     formats = set(re.findall(r'\b(?:bo\s*|best.of.)([12357])\b',context,re.I))
-                    if len(formats)!=1 or kickoff!=cutoff:
+                    if len(formats)!=1:
+                        reasons.append('formato ausente o ambiguo')
+                        continue
+                    if kickoff!=cutoff:
+                        reasons.append('hora distinta')
                         logging.warning('T1 BO3.gg mismatch %s kickoff=%s formats=%s',path,kickoff,sorted(formats))
                         continue
                     tournament = event.get('superEvent') or event.get('eventSeries') or event.get('organizer')
@@ -221,8 +230,13 @@ def lookup(match, diagnostics=None):
                         return dict(names=sides,source=event['url'],tournament=tournament,format='BO'+formats.pop(),
                                     kickoff=kickoff.isoformat(),checked=datetime.now(timezone.utc).isoformat(),
                                     rosters={},history={},team_ids={})
+                    reasons.append('torneo ausente')
         except (OSError,ValueError,KeyError,TypeError,IndexError,AttributeError) as exc:
             logging.warning('T1 BO3.gg sheet %s: %s',path,exc)
+            reasons.append('ficha inaccesible ('+type(exc).__name__+')')
+        if not reasons:
+            reasons.append('no se encontró SportsEvent en los datos estructurados')
+        alternate_sheet.last_reasons = reasons
         return None
     if bo3_path:
         fixture = alternate_sheet(bo3_path)
@@ -230,7 +244,7 @@ def lookup(match, diagnostics=None):
             fixture['provider'] = 'BO3.gg'
             diagnostics.append('BO3.gg: encuentro verificado por ficha directa, equipos, hora y formato')
             return fixture
-        diagnostics.append('BO3.gg: la ficha directa no confirmó equipos, hora y formato')
+        diagnostics.append('BO3.gg: ficha directa no validada ('+'; '.join(getattr(alternate_sheet,'last_reasons',[]))[:180]+')')
         return None
     with ThreadPoolExecutor(max_workers=2) as pool:
         indexes = list(pool.map(alternate,names))
