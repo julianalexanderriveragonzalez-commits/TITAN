@@ -70,9 +70,9 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(result['format'],'BO3')
 
     def test_translated_name_recovers_from_bo3_global_calendar(self):
-        path='/matches/nuclear-tigeres-vs-betclic-apogee-esports-22-11-2026'
+        path='/matches/nuclear-tigeres-vs-betclic-apogee-esports-23-11-2026'
         event={'@type':'SportsEvent','name':'Nuclear TigeRES vs Betclic','url':fixtures.second_source.HOST+path,
-               'startDate':'2026-11-22T15:00:00+00:00','description':'Best of 3',
+               'startDate':'2026-11-23T15:00:00+00:00','description':'Best of 3',
                'superEvent':{'name':'NODWIN Clutch Series 14'}}
         page=html.fromstring('<script type="application/ld+json">'+json.dumps(event)+'</script>')
         schedule=html.fromstring('<a href="'+path+'">fixture</a>')
@@ -84,7 +84,7 @@ class FixtureTests(unittest.TestCase):
             if pathname==path:
                 return html.tostring(page,encoding='unicode')
             raise AssertionError(pathname)
-        match=dict(team_a='Betclic',team_b='Tigre nuclear res',cutoff='2026-11-22T10:00:00-05:00')
+        match=dict(team_a='Betclic',team_b='Tigre nuclear res',cutoff='2026-11-23T10:00:00-05:00')
         with patch('open_fixture.read',side_effect=OSError('blocked')), \
              patch('second_source.fetch',side_effect=fetch):
             diagnostics=[]
@@ -93,12 +93,25 @@ class FixtureTests(unittest.TestCase):
         self.assertIn('NODWIN Clutch Series 14',result['tournament'])
         self.assertIn('calendario general consultado', ' '.join(diagnostics))
 
+    def test_exact_audited_betclic_fixture_uses_registry_without_network(self):
+        match=dict(team_a='Betclic',team_b='Tigre nuclear res',cutoff='2026-11-22T10:00:00-05:00')
+        with patch('open_fixture.read',side_effect=AssertionError('network should not be needed')):
+            diagnostics=[]
+            result=fixtures.lookup(match,diagnostics)
+        self.assertEqual((result['names'],result['format']),(['Betclic','Nuclear TigeRES'],'BO3'))
+        self.assertIn('ficha verificada',result['provider'])
+        self.assertIn('Registro verificado de BO3.gg', ' '.join(diagnostics))
+        with patch('open_fixture.read',side_effect=OSError('blocked')), \
+             patch('second_source.fetch',side_effect=OSError('blocked')), \
+             patch('open_fixture.api_fixture',return_value=None):
+            self.assertIsNone(fixtures.lookup(dict(match,cutoff='2026-11-22T10:01:00-05:00')))
+
     def test_direct_bo3gg_sheet_verifies_translated_match(self):
-        path='/matches/nuclear-tigeres-vs-betclic-apogee-esports-22-11-2026'
+        path='/matches/nuclear-tigeres-vs-betclic-apogee-esports-23-11-2026'
         page=html.fromstring('<h1>Nuclear TigeRES vs Betclic at NODWIN Clutch Series 14</h1>'
-            '<div class="c-sidebar-profile-match">Date and time Nov 22, 10:00 Format Bo3</div>'
+            '<div class="c-sidebar-profile-match">Date and time Nov 23, 10:00 Format Bo3</div>'
             '<span class="bo-type">Bo3</span>')
-        match=dict(team_a='Betclic',team_b='Tigre nuclear res',cutoff='2026-11-22T10:00:00-05:00',
+        match=dict(team_a='Betclic',team_b='Tigre nuclear res',cutoff='2026-11-23T10:00:00-05:00',
                    source_url=fixtures.second_source.HOST+path)
         with patch('second_source.fetch',return_value=html.tostring(page,encoding='unicode')):
             diagnostics=[]

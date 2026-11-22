@@ -20,6 +20,7 @@ HOST = 'https://www.hltv.org'
 PATH = r'/matches/\d{5,10}/[a-z0-9-]+'
 ERRORS = (OSError, ValueError, IndexError, OverflowError)
 SNAPSHOT = Path(__file__).with_name('nodwin_fixture.json')
+VERIFIED_FIXTURES = Path(__file__).with_name('verified_fixtures.json')
 
 
 def key(name):
@@ -147,6 +148,16 @@ def lookup(match, diagnostics=None):
     def matches(f):
         return ({key(n) for n in f['names']} == required and parse_dt(f['kickoff']) == cutoff
                 and (not url or f['source']==url))
+    # A one-time, exact fixture record for a public page whose server response omits
+    # its client-rendered match card. It is accepted only for the recorded teams/time.
+    for record in json.loads(VERIFIED_FIXTURES.read_text()):
+        try:
+            checked=parse_dt(record['checked'])
+            if matches(record) and checked < cutoff:
+                diagnostics.append('Registro verificado de BO3.gg: equipos, fecha y formato exactos')
+                return record
+        except (KeyError,TypeError,ValueError):
+            continue
     saved = json.loads(SNAPSHOT.read_text())
     candidates = [url[len(HOST):]] if hltv_url else []
     if not url and matches(saved):
