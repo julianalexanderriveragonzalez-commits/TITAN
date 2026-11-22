@@ -193,6 +193,49 @@ def lookup(match, diagnostics=None):
         except ERRORS as exc:
             logging.warning('T1 BO3.gg index %s: %s',slug,exc)
             return [], str(exc)
+    def visible_bo3_record(doc,path):
+        """Use the public match card when BO3.gg omits JSON-LD from its response."""
+        headings=[' '.join(h.text_content().split()) for h in doc.xpath('//h1')]
+        title=next((h for h in headings if ' vs ' in h.lower() and ' at ' in h.lower()),'')
+        sides=re.split(r'\s+vs\s+',title.rsplit(' at ',1)[0],maxsplit=1,flags=re.I)
+        if len(sides)!=2 or {key(n) for n in sides}!=required:
+            return None
+        date_match=re.search(r'-(\d{2})-(\d{2})-(\d{4})$',path)
+        local=datetime.fromisoformat(match['cutoff'])
+        utc=local.astimezone(timezone.utc)
+        if not date_match:
+            return None
+        day,month,year=map(int,date_match.groups())
+        page_date=(year,month,day)
+        dates={(local.year,local.month,local.day):local,
+               (utc.year,utc.month,utc.day):utc}
+        if page_date not in dates:
+            return None
+        sidebar=' '.join(doc.xpath('//*[contains(@class,"c-sidebar-profile-match")]//text()'))
+        time_match=re.search(r'Date and time\s+([A-Za-z]{3})\s+(\d{1,2}),\s*(\d{1,2}):(\d{2})\s*(AM|PM)?',sidebar,re.I)
+        if not time_match:
+            return None
+        month,day,hour,minute,meridiem=time_match.groups()
+        try:
+            event_date=datetime.strptime(f'{month} {day} {local.year}','%b %d %Y')
+            hour=int(hour)
+            if meridiem:
+                hour=hour%12+(12 if meridiem.upper()=='PM' else 0)
+            shown=(event_date.year,event_date.month,event_date.day,hour,int(minute))
+        except ValueError:
+            return None
+        if shown not in {(d.year,d.month,d.day,d.hour,d.minute) for d in (local,utc)}:
+            return None
+        classes=' '.join(e.text_content() for e in doc.xpath('//*[contains(@class,"bo-type")]'))
+        formats=set(re.findall(r'\bbo\s*([12357])\b',classes,re.I))
+        if len(formats)!=1:
+            return None
+        tournament=title.rsplit(' at ',1)[1].strip()
+        if not tournament:
+            return None
+        return dict(names=sides,source=second_source.HOST+path,tournament=tournament,
+                    format='BO'+formats.pop(),kickoff=cutoff.isoformat(),
+                    checked=datetime.now(timezone.utc).isoformat(),rosters={},history={},team_ids={})
     def alternate_sheet(path):
         reasons = []
         try:
@@ -231,6 +274,9 @@ def lookup(match, diagnostics=None):
                                     kickoff=kickoff.isoformat(),checked=datetime.now(timezone.utc).isoformat(),
                                     rosters={},history={},team_ids={})
                     reasons.append('torneo ausente')
+            visible=visible_bo3_record(doc,path)
+            if visible:
+                return visible
         except (OSError,ValueError,KeyError,TypeError,IndexError,AttributeError) as exc:
             logging.warning('T1 BO3.gg sheet %s: %s',path,exc)
             reasons.append('ficha inaccesible ('+type(exc).__name__+')')

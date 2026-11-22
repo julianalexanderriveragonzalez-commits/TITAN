@@ -95,11 +95,9 @@ class FixtureTests(unittest.TestCase):
 
     def test_direct_bo3gg_sheet_verifies_translated_match(self):
         path='/matches/nuclear-tigeres-vs-betclic-apogee-esports-22-11-2026'
-        event={'@type':'SportsEvent','name':'Nuclear TigeRES vs Betclic',
-               'url':fixtures.second_source.HOST+path,'startDate':'2026-11-22T15:00:00+00:00',
-               'description':'Nuclear TigeRES vs Betclic','organizer':{'name':'NODWIN Clutch Series 14'}}
-        page=html.fromstring('<script type="application/ld+json">'+json.dumps([event])+'</script>'
-                            '<span class="bo-type">Bo3</span>')
+        page=html.fromstring('<h1>Nuclear TigeRES vs Betclic at NODWIN Clutch Series 14</h1>'
+            '<div class="c-sidebar-profile-match">Date and time Nov 22, 10:00 Format Bo3</div>'
+            '<span class="bo-type">Bo3</span>')
         match=dict(team_a='Betclic',team_b='Tigre nuclear res',cutoff='2026-11-22T10:00:00-05:00',
                    source_url=fixtures.second_source.HOST+path)
         with patch('second_source.fetch',return_value=html.tostring(page,encoding='unicode')):
